@@ -96,7 +96,7 @@ void Statefilter::PrintInfo() const {
           << "Using density filer with no threshold " << flush;
     } else {
       XTP_LOG(logDEBUG, *_log)
-          << "Using overlap filer with threshold " << _dmatthreshold << flush;
+          << "Using density filer with threshold " << _dmatthreshold << flush;
     }
   }
   if (_use_localisationfilter) {
@@ -165,7 +165,7 @@ QMState Statefilter::CalcState(const Orbitals& orbitals) const {
     results.push_back(OverlapFilter(orbitals));
   }
   if (_use_densityfilter) {
-    results.push_back(OverlapFilter(orbitals));
+    results.push_back(DensityFilter(orbitals));
   }
   if (_use_dQfilter) {
     results.push_back(DeltaQFilter(orbitals));
@@ -244,13 +244,17 @@ Eigen::VectorXd Statefilter::CalculateOverlap(const Orbitals& orbitals) const {
 }
 
 Eigen::VectorXd Statefilter::CalculateDNorm(const Orbitals& orbitals) const{
+    
     int nostates=orbitals.NumberofStates(_statehist[0].Type());
-    Eigen::VectorXd norm;
+    
+    Eigen::VectorXd norm=Eigen::VectorXd::Zero(nostates);
     for(int i=0;i<nostates;i++){
         QMState state(_statehist[0].Type(),i,false);
-        Eigen::MatrixXd diff = orbitals.DensityMatrixFull(state)-_lastdmat;
-        norm(i) = diff.norm();
+        Eigen::MatrixXd diff = (orbitals.DensityMatrixFull(state)-_lastdmat);
+        norm(i) = diff.norm()/(_lastdmat.norm());
+        
     }
+    std::cout << " \n" << norm << std::endl;
     return norm;    
 }
 
@@ -318,14 +322,15 @@ std::vector<int> Statefilter::OverlapFilter(const Orbitals& orbitals) const {
   return indexes;
 }
 
-std::vector<int> Statefilter::DensityFilter(const Orbitals& orbitals) const {
+std::vector<int> Statefilter::DensityFilter(const Orbitals& orbitals) const { 
   std::vector<int> indexes;
   if (_statehist.size() <= 1) {
     indexes = std::vector<int>{_statehist[0].Index()};
     return indexes;
   }
-
+  
   Eigen::VectorXd dnorm = CalculateDNorm(orbitals);
+  
   int validelements = dnorm.size();
   for (int i = 0; i < dnorm.size(); i++) {
     if (dnorm(i) < _dmatthreshold) {
@@ -335,7 +340,7 @@ std::vector<int> Statefilter::DensityFilter(const Orbitals& orbitals) const {
   std::vector<int> index = std::vector<int>(dnorm.size());
   std::iota(index.begin(), index.end(), 0);
   std::stable_sort(index.begin(), index.end(), [&dnorm](int i1, int i2) {
-    return dnorm[i1] > dnorm[i2];
+    return dnorm[i1] < dnorm[i2];
   });
   int offset = 0;
   if (_statehist[0].Type() == QMStateType::DQPstate) {
