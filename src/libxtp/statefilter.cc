@@ -36,6 +36,11 @@ void Statefilter::Initialize(tools::Property& options) {
     _overlapthreshold =
         options.ifExistsReturnElseReturnDefault<double>("overlap", 0.0);
   }
+  if (options.exists("density")) {
+    _use_densityfilter = true;
+    _dmatthreshold =
+        options.ifExistsReturnElseReturnDefault<double>("density", 0.0);
+  }
   if (options.exists("localisation")) {
     _use_localisationfilter = true;
     std::string indices =
@@ -73,16 +78,25 @@ void Statefilter::PrintInfo() const {
         << "Last state: " << _statehist.back().ToString() << flush;
   }
   if (_use_oscfilter) {
-    XTP_LOG(logDEBUG, *_log) << "Using oscillator strength filter with cutoff "
+    XTP_LOG(logDEBUG, *_log) << "Using oscillator strength filter with threshold "
                              << _oscthreshold << flush;
   }
   if (_use_overlapfilter) {
     if (_overlapthreshold == 0.0) {
       XTP_LOG(logDEBUG, *_log)
-          << "Using overlap filer with no cutoff " << flush;
+          << "Using overlap filer with no threshold " << flush;
     } else {
       XTP_LOG(logDEBUG, *_log)
-          << "Using overlap filer with cutoff " << _overlapthreshold << flush;
+          << "Using overlap filer with threshold " << _overlapthreshold << flush;
+    }
+  }
+  if (_use_densityfilter) {
+    if (_dmatthreshold == 0.0) {
+      XTP_LOG(logDEBUG, *_log)
+          << "Using density filer with no threshold " << flush;
+    } else {
+      XTP_LOG(logDEBUG, *_log)
+          << "Using overlap filer with threshold " << _dmatthreshold << flush;
     }
   }
   if (_use_localisationfilter) {
@@ -101,7 +115,7 @@ void Statefilter::PrintInfo() const {
                              << flush;
   }
   if (_use_dQfilter + _use_oscfilter + _use_localisationfilter +
-          _use_oscfilter <
+          _use_overlapfilter + _use_densityfilter <
       1) {
     XTP_LOG(logDEBUG, *_log) << "WARNING: No filter is used " << flush;
   }
@@ -135,7 +149,7 @@ std::vector<int> Statefilter::CollapseResults(
 QMState Statefilter::CalcState(const Orbitals& orbitals) const {
 
   if (_use_dQfilter + _use_oscfilter + _use_localisationfilter +
-          _use_oscfilter <
+          _use_overlapfilter + _use_densityfilter <
       1) {
     return _statehist[0];
   }
@@ -148,6 +162,9 @@ QMState Statefilter::CalcState(const Orbitals& orbitals) const {
     results.push_back(LocFilter(orbitals));
   }
   if (_use_overlapfilter) {
+    results.push_back(OverlapFilter(orbitals));
+  }
+  if (_use_densityfilter) {
     results.push_back(OverlapFilter(orbitals));
   }
   if (_use_dQfilter) {
@@ -174,6 +191,10 @@ QMState Statefilter::CalcStateAndUpdate(const Orbitals& orbitals) {
   if (_use_overlapfilter) {
     UpdateLastCoeff(orbitals);
   }
+  if(_use_densityfilter){
+    UpdateLastDmat(orbitals);
+  }
+ 
   return result;
 }
 
@@ -222,6 +243,18 @@ Eigen::VectorXd Statefilter::CalculateOverlap(const Orbitals& orbitals) const {
   return overlap;
 }
 
+Eigen::VectorXd Statefilter::CalculateDNorm(const Orbitals& orbitals) const{
+    int nostates=orbitals.NumberofStates(_statehist[0].Type());
+    Eigen::VectorXd norm;
+    for(int i=0;i<nostates;i++){
+        QMState state(_statehist[0].Type(),i,false);
+        Eigen::MatrixXd diff = orbitals.DensityMatrixFull(state)-_lastdmat;
+        norm(i) = diff.norm();
+    }
+    return norm;    
+}
+
+
 Eigen::MatrixXd Statefilter::CalcOrthoCoeffs(const Orbitals& orbitals) const {
   QMStateType type = _statehist[0].Type();
   Eigen::MatrixXd coeffs;
@@ -244,6 +277,10 @@ void Statefilter::UpdateLastCoeff(const Orbitals& orbitals) {
     offset = orbitals.getGWAmin();
   }
   _laststatecoeff = ortho_coeffs.col(_statehist.back().Index() - offset);
+}
+
+void Statefilter::UpdateLastDmat(const Orbitals& orbitals){
+    _lastdmat=orbitals.DensityMatrixFull(_statehist.back());
 }
 
 std::vector<int> Statefilter::OverlapFilter(const Orbitals& orbitals) const {
@@ -281,6 +318,40 @@ std::vector<int> Statefilter::OverlapFilter(const Orbitals& orbitals) const {
   return indexes;
 }
 
+std::vector<int> Statefilter::DensityFilter(const Orbitals& orbitals) const {
+  std::vector<int> indexes;
+  if (_statehist.size() <= 1) {
+    indexes = std::vector<int>{_statehist[0].Index()};
+    return indexes;
+  }
+
+  Eigen::VectorXd dnorm = CalculateDNorm(orbitals);
+  int validelements = dnorm.size();
+  for (int i = 0; i < dnorm.size(); i++) {
+    if (dnorm(i) < _dmatthreshold) {
+      validelements--;
+    }
+  }
+  std::vector<int> index = std::vector<int>(dnorm.size());
+  std::iota(index.begin(), index.end(), 0);
+  std::stable_sort(index.begin(), index.end(), [&dnorm](int i1, int i2) {
+    return dnorm[i1] > dnorm[i2];
+  });
+  int offset = 0;
+  if (_statehist[0].Type() == QMStateType::DQPstate) {
+    offset = orbitals.getGWAmin();
+  }
+
+  for (int i : index) {
+    if (int(indexes.size()) == validelements) {
+      break;
+    }
+    indexes.push_back(i + offset);
+  }
+  return indexes;
+}
+
+
 void Statefilter::WriteToCpt(CheckpointWriter& w) const {
   std::vector<std::string> statehiststring;
   statehiststring.reserve(_statehist.size());
@@ -294,6 +365,10 @@ void Statefilter::WriteToCpt(CheckpointWriter& w) const {
   w(_use_overlapfilter, "overlapfilter");
   w(_overlapthreshold, "overlapthreshold");
   w(_laststatecoeff, "laststatecoeff");
+  
+  w(_use_densityfilter, "densityfilter");
+  w(_dmatthreshold, "dmatthreshold");
+  w(_lastdmat, "lastdmat");
 
   w(_use_localisationfilter, "localisationfilter");
   w(_loc_threshold, "locthreshold");
@@ -327,6 +402,11 @@ void Statefilter::ReadFromCpt(CheckpointReader& r) {
   r(_overlapthreshold, "overlapthreshold");
   r(_laststatecoeff, "laststatecoeff");
 
+  r(_use_densityfilter, "densityfilter");
+  r(_dmatthreshold, "dmatthreshold");
+  r(_lastdmat, "lastdmat");
+  
+  
   r(_use_localisationfilter, "localisationfilter");
   r(_loc_threshold, "locthreshold");
   _fragment_loc.clear();

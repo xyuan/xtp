@@ -302,6 +302,8 @@ class Orbitals {
 
   void WriteToCpt(CheckpointWriter w) const;
   void ReadFromCpt(CheckpointReader parent);
+  
+ 
 
  private:
   std::array<Eigen::MatrixXd, 3> CalcFreeTransition_Dipoles() const;
