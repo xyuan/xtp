@@ -219,6 +219,25 @@ BOOST_AUTO_TEST_CASE(osc) {
   {
     std::ofstream options("filter.xml");
     options << "<filter>" << std::endl;
+    options << "  <density>0.1</density>"
+            << std::endl;
+    options << "</filter>" << std::endl;
+    options.close();
+    votca::tools::Property prop;
+    votca::tools::load_property_from_xml(prop, "filter.xml");
+    Statefilter filter;
+    filter.setLogger(&log);
+    QMState s("s1");
+    filter.setInitialState(s);
+    filter.Initialize(prop.get("filter"));
+    QMState newstate = filter.CalcState(orb);
+    BOOST_CHECK_EQUAL(newstate.Type().ToString(), "s");
+    BOOST_CHECK_EQUAL(newstate.Index(), 0);
+  }
+  
+  {
+    std::ofstream options("filter.xml");
+    options << "<filter>" << std::endl;
     options << "  <localisation>" << std::endl;
     options << "  <fragment>0 1</fragment>" << std::endl;
     options << "  <threshold>0.5</threshold>" << std::endl;
