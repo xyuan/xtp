@@ -548,7 +548,8 @@ void Orbitals::ReadFromCpt(const std::string& filename) {
 }
 
 void Orbitals::ReadFromCpt(CheckpointFile f) {
-  ReadFromCpt(f.getReader("/region_0/orbitals"));
+  //ReadFromCpt(f.getReader("/region_0/orbitals"));
+  ReadFromCpt(f.getReader("/QMdata"));
 }
 
 void Orbitals::ReadFromCpt(CheckpointReader r) {
