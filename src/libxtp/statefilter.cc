@@ -84,19 +84,19 @@ void Statefilter::PrintInfo() const {
   if (_use_overlapfilter) {
     if (_overlapthreshold == 0.0) {
       XTP_LOG(logDEBUG, *_log)
-          << "Using overlap filer with no threshold " << flush;
+          << "Using overlap filter with no threshold " << flush;
     } else {
       XTP_LOG(logDEBUG, *_log)
-          << "Using overlap filer with threshold " << _overlapthreshold << flush;
+          << "Using overlap filter with threshold " << _overlapthreshold << flush;
     }
   }
   if (_use_densityfilter) {
     if (_dmatthreshold == 0.0) {
       XTP_LOG(logDEBUG, *_log)
-          << "Using density filer with no threshold " << flush;
+          << "Using density filter with no threshold " << flush;
     } else {
       XTP_LOG(logDEBUG, *_log)
-          << "Using density filer with threshold " << _dmatthreshold << flush;
+          << "Using density filter with threshold " << _dmatthreshold << flush;
     }
   }
   if (_use_localisationfilter) {
@@ -252,9 +252,8 @@ Eigen::VectorXd Statefilter::CalculateDNorm(const Orbitals& orbitals) const{
         QMState state(_statehist[0].Type(),i,false);
         Eigen::MatrixXd diff = (orbitals.DensityMatrixFull(state)-_lastdmat);
         norm(i) = diff.norm()/(_lastdmat.norm());
-        
     }
-    std::cout << " \n" << norm << std::endl;
+    std::cout << " \n || D_new - D_old||/||D_old|| \n" << norm << std::endl;
     return norm;    
 }
 
@@ -333,7 +332,7 @@ std::vector<int> Statefilter::DensityFilter(const Orbitals& orbitals) const {
   
   int validelements = dnorm.size();
   for (int i = 0; i < dnorm.size(); i++) {
-    if (dnorm(i) < _dmatthreshold) {
+    if (dnorm(i) > _dmatthreshold) {
       validelements--;
     }
   }
