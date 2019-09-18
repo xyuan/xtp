@@ -36,6 +36,18 @@ void Statefilter::Initialize(tools::Property& options) {
     _overlapthreshold =
         options.ifExistsReturnElseReturnDefault<double>("overlap", 0.0);
   }
+  if (options.exists("overlapbse")) {
+    _use_overlapfilter_bse = true;
+    _overlapthreshold =
+        options.ifExistsReturnElseReturnDefault<double>("overlapbse", 0.0);
+  }
+//   if (options.exists("variational")) {
+//    _use_variationalfilter = true;
+//    _variationalthreshold =
+//        options.ifExistsReturnElseReturnDefault<double>("variational", 0.0);
+//  }
+  
+  
   if (options.exists("density")) {
     _use_densityfilter = true;
     _dmatthreshold =
@@ -90,6 +102,25 @@ void Statefilter::PrintInfo() const {
           << "Using overlap filter with threshold " << _overlapthreshold << flush;
     }
   }
+  if (_use_overlapfilter_bse) {
+    if (_overlapthreshold == 0.0) {
+      XTP_LOG(logDEBUG, *_log)
+          << "Using overlap filter BSE with no threshold " << flush;
+    } else {
+      XTP_LOG(logDEBUG, *_log)
+          << "Using overlap filter BSE with threshold " << _overlapthreshold << flush;
+    }
+  }
+//  if (_use_variationalfilter) {
+//    if (_variationalthreshold == 0.0) {
+//      XTP_LOG(logDEBUG, *_log)
+//          << "Using Variational filter BSE with no threshold " << flush;
+//    } else {
+//      XTP_LOG(logDEBUG, *_log)
+//          << "Using Variational filter BSE with threshold " << _variationalthreshold << flush;
+//    }
+//  }
+    
   if (_use_densityfilter) {
     if (_dmatthreshold == 0.0) {
       XTP_LOG(logDEBUG, *_log)
@@ -115,7 +146,7 @@ void Statefilter::PrintInfo() const {
                              << flush;
   }
   if (_use_dQfilter + _use_oscfilter + _use_localisationfilter +
-          _use_overlapfilter + _use_densityfilter <
+          _use_overlapfilter + _use_densityfilter + _use_overlapfilter_bse + _use_variationalfilter<
       1) {
     XTP_LOG(logDEBUG, *_log) << "WARNING: No filter is used " << flush;
   }
@@ -149,7 +180,8 @@ std::vector<int> Statefilter::CollapseResults(
 QMState Statefilter::CalcState(const Orbitals& orbitals) const {
 
   if (_use_dQfilter + _use_oscfilter + _use_localisationfilter +
-          _use_overlapfilter + _use_densityfilter <
+          _use_overlapfilter + _use_densityfilter +_use_overlapfilter_bse 
+           <
       1) {
     return _statehist[0];
   }
@@ -164,6 +196,12 @@ QMState Statefilter::CalcState(const Orbitals& orbitals) const {
   if (_use_overlapfilter) {
     results.push_back(OverlapFilter(orbitals));
   }
+  if (_use_overlapfilter_bse) {
+    results.push_back(OverlapFilterBSE(orbitals));
+  }
+  //if (_use_variationalfilter) {
+  //  results.push_back(VariationalFilter(orbitals));
+  //}
   if (_use_densityfilter) {
     results.push_back(DensityFilter(orbitals));
   }
@@ -191,10 +229,18 @@ QMState Statefilter::CalcStateAndUpdate(const Orbitals& orbitals) {
   if (_use_overlapfilter) {
     UpdateLastCoeff(orbitals);
   }
+  if (_use_overlapfilter_bse) {
+    UpdateLastBSE_R(orbitals);
+    UpdateLastBSE_AR(orbitals);
+  }
   if(_use_densityfilter){
     UpdateLastDmat(orbitals);
   }
- 
+//  if(_use_variationalfilter){
+//    UpdateLastBSE_R(orbitals);
+//    UpdateLastBSE_AR(orbitals);
+//    UpdateLastBSE_energies(orbitals);
+//  }
   return result;
 }
 
@@ -243,6 +289,38 @@ Eigen::VectorXd Statefilter::CalculateOverlap(const Orbitals& orbitals) const {
   return overlap;
 }
 
+
+Eigen::VectorXd Statefilter::CalculateOverlapBSE(const Orbitals& orbitals) const {
+    
+    int nostates=orbitals.NumberofStates(_statehist[0].Type());
+    Eigen::VectorXd overlap=Eigen::VectorXd::Zero(nostates);
+    for(int i=0;i<nostates;i++){
+        QMState state(_statehist[0].Type(),i,false);
+        Eigen::VectorXd a = orbitals.BSESinglets().eigenvectors().col(i);
+        Eigen::VectorXd b = orbitals.BSESinglets().eigenvectors2().col(i);    
+        overlap(i) = std::norm(_lastbse_R.dot(a) - _lastbse_AR.dot(b)) ;
+    }
+    std::cout << " \n Testing overlap Singlet \n " << overlap << std::endl;
+    return overlap;
+}
+
+//Eigen::VectorXd Statefilter::CalculateVariationalBSE(const Orbitals& orbitals) const {
+//    
+//    int nostates=orbitals.NumberofStates(_statehist[0].Type());
+//    Eigen::VectorXd overlap= CalculateOverlapBSE(orbitals);
+//    Eigen::VectorXd var = Eigen::VectorXd::Zero(nostates);
+//    
+//    for(int i=0;i<nostates;i++){
+//        QMState state(_statehist[0].Type(),i,false);
+//        Eigen::VectorXd diff_en = orbitals.BSESinglets().eigenvalues() - _lastbseenergies(i); 
+//        var(i) = diff_en(i)*diff_en(i)*overlap(i);
+//    }
+//    std::cout << " \n Testing Variational Singlet \n " << var << std::endl;
+//    return var;
+//}
+
+
+
 Eigen::VectorXd Statefilter::CalculateDNorm(const Orbitals& orbitals) const{
     
     int nostates=orbitals.NumberofStates(_statehist[0].Type());
@@ -286,6 +364,21 @@ void Statefilter::UpdateLastDmat(const Orbitals& orbitals){
     _lastdmat=orbitals.DensityMatrixFull(_statehist.back());
 }
 
+
+void Statefilter::UpdateLastBSE_R(const Orbitals& orbitals){
+    _lastbse_R = 
+           orbitals.BSESinglets().eigenvectors().col(_statehist.back().Index());
+}
+
+void Statefilter::UpdateLastBSE_AR(const Orbitals& orbitals){
+    _lastbse_AR = 
+          orbitals.BSESinglets().eigenvectors2().col(_statehist.back().Index());
+}
+
+void Statefilter::UpdateLastBSE_energies(const Orbitals& orbitals){
+    _lastbseenergies = orbitals.BSESinglets().eigenvalues(); 
+}
+
 std::vector<int> Statefilter::OverlapFilter(const Orbitals& orbitals) const {
   std::vector<int> indexes;
   if (_statehist.size() <= 1) {
@@ -321,6 +414,42 @@ std::vector<int> Statefilter::OverlapFilter(const Orbitals& orbitals) const {
   return indexes;
 }
 
+std::vector<int> Statefilter::OverlapFilterBSE(const Orbitals& orbitals) const {
+  std::vector<int> indexes;
+  if (_statehist.size() <= 1) {
+    indexes = std::vector<int>{_statehist[0].Index()};
+    return indexes;
+  }
+
+  Eigen::VectorXd Overlap = CalculateOverlapBSE(orbitals);
+  int validelements = Overlap.size();
+  for (int i = 0; i < Overlap.size(); i++) {
+    if (Overlap(i) < _overlapthreshold) {
+      validelements--;
+    }
+  }
+
+  std::vector<int> index = std::vector<int>(Overlap.size());
+  std::iota(index.begin(), index.end(), 0);
+  std::stable_sort(index.begin(), index.end(), [&Overlap](int i1, int i2) {
+    return Overlap[i1] > Overlap[i2];
+  });
+
+  int offset = 0;
+  if (_statehist[0].Type() == QMStateType::DQPstate) {
+    offset = orbitals.getGWAmin();
+  }
+
+  for (int i : index) {
+    if (int(indexes.size()) == validelements) {
+      break;
+    }
+    indexes.push_back(i + offset);
+  }
+  return indexes;
+}
+
+
 std::vector<int> Statefilter::DensityFilter(const Orbitals& orbitals) const { 
   std::vector<int> indexes;
   if (_statehist.size() <= 1) {
@@ -355,6 +484,40 @@ std::vector<int> Statefilter::DensityFilter(const Orbitals& orbitals) const {
   return indexes;
 }
 
+//std::vector<int> Statefilter::VariationalFilter(const Orbitals& orbitals) const { 
+//  std::vector<int> indexes;
+//  if (_statehist.size() <= 1) {
+//    indexes = std::vector<int>{_statehist[0].Index()};
+//    return indexes;
+//  }
+//  
+//  Eigen::VectorXd var = CalculateVariationalBSE(orbitals);
+//  
+//  int validelements = var.size();
+//  for (int i = 0; i < var.size(); i++) {
+//    if (var(i) > _variationalthreshold) {
+//      validelements--;
+//    }
+//  }
+//  std::vector<int> index = std::vector<int>(var.size());
+//  std::iota(index.begin(), index.end(), 0);
+//  std::stable_sort(index.begin(), index.end(), [&var](int i1, int i2) {
+//    return var[i1] < var[i2];
+//  });
+//  int offset = 0;
+//  if (_statehist[0].Type() == QMStateType::DQPstate) {
+//    offset = orbitals.getGWAmin();
+//  }
+//
+//  for (int i : index) {
+//    if (int(indexes.size()) == validelements) {
+//      break;
+//    }
+//    indexes.push_back(i + offset);
+//  }
+//  return indexes;
+//}
+
 
 void Statefilter::WriteToCpt(CheckpointWriter& w) const {
   std::vector<std::string> statehiststring;
@@ -367,8 +530,14 @@ void Statefilter::WriteToCpt(CheckpointWriter& w) const {
   w(_oscthreshold, "oscthreshold");
 
   w(_use_overlapfilter, "overlapfilter");
+  w(_use_overlapfilter_bse, "overlapfilterbse");
+//  w(_use_variationalfilter, "variationalfilter");
+//  w(_variationalthreshold, "variationalthreshold");
   w(_overlapthreshold, "overlapthreshold");
-  w(_laststatecoeff, "laststatecoeff");
+  w(_lastbse_R, "lastbse_R");
+  w(_lastbse_AR, "lastbse_AR");
+  w(_lastbseenergies, "lastbseenergies");
+  
   
   w(_use_densityfilter, "densityfilter");
   w(_dmatthreshold, "dmatthreshold");
@@ -401,15 +570,20 @@ void Statefilter::ReadFromCpt(CheckpointReader& r) {
   }
   r(_use_oscfilter, "oscfilter");
   r(_oscthreshold, "oscthreshold");
-
+ 
+//  r(_use_variationalfilter, "variationalfilter");
+//  r(_variationalthreshold, "variationalthreshold");
   r(_use_overlapfilter, "overlapfilter");
   r(_overlapthreshold, "overlapthreshold");
   r(_laststatecoeff, "laststatecoeff");
-
+  r(_use_overlapfilter_bse, "overlapfilterbse");
+  r(_lastbse_R, "lastbse_R");
+  r(_lastbse_AR, "lastbse_AR");
+  
   r(_use_densityfilter, "densityfilter");
   r(_dmatthreshold, "dmatthreshold");
   r(_lastdmat, "lastdmat");
-  
+  r(_lastbseenergies, "lastbseenergies");
   
   r(_use_localisationfilter, "localisationfilter");
   r(_loc_threshold, "locthreshold");

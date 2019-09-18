@@ -56,16 +56,22 @@ class Statefilter {
   std::vector<int> LocFilter(const Orbitals& orbitals) const;
   std::vector<int> DeltaQFilter(const Orbitals& orbitals) const;
   std::vector<int> OverlapFilter(const Orbitals& orbitals) const;
+  std::vector<int> OverlapFilterBSE(const Orbitals& orbitals) const;
   
+ //std::vector<int> VariationalFilter(const Orbitals& orbitals) const;
  std::vector<int> DensityFilter(const Orbitals& orbitals) const;
 
   Eigen::VectorXd CalculateOverlap(const Orbitals& orbitals) const;
-
+  Eigen::VectorXd CalculateOverlapBSE(const Orbitals& orbitals) const;
   Eigen::VectorXd CalculateDNorm(const Orbitals& orbitals) const;
+  //Eigen::VectorXd CalculateVariationalBSE(const Orbitals& orbitals) const;
   
   void UpdateLastCoeff(const Orbitals& orbitals);
   void UpdateLastDmat(const Orbitals& orbitals);
- 
+  void UpdateLastBSE_R(const Orbitals& orbitals);
+  void UpdateLastBSE_AR(const Orbitals& orbitals);
+  void UpdateLastBSE_energies(const Orbitals& orbitals);
+  
   Eigen::MatrixXd CalcOrthoCoeffs(const Orbitals& orbitals) const;
 
   std::vector<int> CollapseResults(
@@ -81,14 +87,22 @@ class Statefilter {
   double _oscthreshold = 0.0;
 
   bool _use_overlapfilter = false;
-  Eigen::VectorXd _laststatecoeff;
-   double _overlapthreshold = 0.0;
-  
+  bool _use_overlapfilter_bse = false;
+  bool _use_variationalfilter = false;
   bool _use_densityfilter =false;
+  
+  
+  double _overlapthreshold = 0.0;
+  double _variationalthreshold = 0.0;
+  double _dmatthreshold = 0.0;
+  
+  Eigen::VectorXd _laststatecoeff; 
+  Eigen::VectorXd _lastbse_R;
+  Eigen::VectorXd _lastbse_AR;
+  Eigen::VectorXd _lastbseenergies;
   Eigen::MatrixXd _lastdmat;
- double _dmatthreshold = 0.0;
- 
-
+  
+  
   bool _use_localisationfilter = false;
   std::vector<QMFragment<BSE_Population> > _fragment_loc;
   double _loc_threshold = 0.0;
