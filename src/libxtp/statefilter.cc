@@ -297,8 +297,8 @@ Eigen::VectorXd Statefilter::CalculateOverlapBSE(const Orbitals& orbitals) const
     for(int i=0;i<nostates;i++){
         QMState state(_statehist[0].Type(),i,false);
         Eigen::VectorXd a = orbitals.BSESinglets().eigenvectors().col(i);
-        Eigen::VectorXd b = orbitals.BSESinglets().eigenvectors2().col(i);    
-        overlap(i) = std::norm(_lastbse_R.dot(a) - _lastbse_AR.dot(b)) ;
+        Eigen::VectorXd b = orbitals.BSESinglets().eigenvectors2().col(i);
+        overlap(i) = 1- (std::norm(_lastbse_R.dot(a) - _lastbse_AR.dot(b)))/(std::norm(_lastbse_R.dot(_lastbse_R) - _lastbse_AR.dot(_lastbse_AR))) ;
     }
     std::cout << " \n Testing overlap Singlet \n " << overlap << std::endl;
     return overlap;
@@ -424,7 +424,7 @@ std::vector<int> Statefilter::OverlapFilterBSE(const Orbitals& orbitals) const {
   Eigen::VectorXd Overlap = CalculateOverlapBSE(orbitals);
   int validelements = Overlap.size();
   for (int i = 0; i < Overlap.size(); i++) {
-    if (Overlap(i) < _overlapthreshold) {
+    if (Overlap(i) > _overlapthreshold) {
       validelements--;
     }
   }
@@ -432,7 +432,7 @@ std::vector<int> Statefilter::OverlapFilterBSE(const Orbitals& orbitals) const {
   std::vector<int> index = std::vector<int>(Overlap.size());
   std::iota(index.begin(), index.end(), 0);
   std::stable_sort(index.begin(), index.end(), [&Overlap](int i1, int i2) {
-    return Overlap[i1] > Overlap[i2];
+    return Overlap[i1] < Overlap[i2];
   });
 
   int offset = 0;
