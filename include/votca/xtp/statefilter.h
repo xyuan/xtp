@@ -67,6 +67,7 @@ class Statefilter {
   //Eigen::VectorXd CalculateVariationalBSE(const Orbitals& orbitals) const;
   
   void UpdateLastCoeff(const Orbitals& orbitals);
+  void UpdateLastCoeff_matrix(const Orbitals& orbitals);
   void UpdateLastDmat(const Orbitals& orbitals);
   void UpdateLastBSE_R(const Orbitals& orbitals);
   void UpdateLastBSE_AR(const Orbitals& orbitals);
@@ -97,6 +98,7 @@ class Statefilter {
   double _dmatthreshold = 0.0;
   
   Eigen::VectorXd _laststatecoeff; 
+  Eigen::MatrixXd _laststatecoeff_mat; 
   Eigen::VectorXd _lastbse_R;
   Eigen::VectorXd _lastbse_AR;
   Eigen::VectorXd _lastbseenergies;

@@ -41,12 +41,6 @@ void Statefilter::Initialize(tools::Property& options) {
     _overlapthreshold =
         options.ifExistsReturnElseReturnDefault<double>("overlapbse", 0.0);
   }
-//   if (options.exists("variational")) {
-//    _use_variationalfilter = true;
-//    _variationalthreshold =
-//        options.ifExistsReturnElseReturnDefault<double>("variational", 0.0);
-//  }
-  
   
   if (options.exists("density")) {
     _use_densityfilter = true;
@@ -111,15 +105,6 @@ void Statefilter::PrintInfo() const {
           << "Using overlap filter BSE with threshold " << _overlapthreshold << flush;
     }
   }
-//  if (_use_variationalfilter) {
-//    if (_variationalthreshold == 0.0) {
-//      XTP_LOG(logDEBUG, *_log)
-//          << "Using Variational filter BSE with no threshold " << flush;
-//    } else {
-//      XTP_LOG(logDEBUG, *_log)
-//          << "Using Variational filter BSE with threshold " << _variationalthreshold << flush;
-//    }
-//  }
     
   if (_use_densityfilter) {
     if (_dmatthreshold == 0.0) {
@@ -199,9 +184,7 @@ QMState Statefilter::CalcState(const Orbitals& orbitals) const {
   if (_use_overlapfilter_bse) {
     results.push_back(OverlapFilterBSE(orbitals));
   }
-  //if (_use_variationalfilter) {
-  //  results.push_back(VariationalFilter(orbitals));
-  //}
+  
   if (_use_densityfilter) {
     results.push_back(DensityFilter(orbitals));
   }
@@ -231,17 +214,13 @@ QMState Statefilter::CalcStateAndUpdate(const Orbitals& orbitals) {
   }
   if (_use_overlapfilter_bse) {
     UpdateLastBSE_R(orbitals);
-    UpdateLastBSE_AR(orbitals);
+    //UpdateLastBSE_AR(orbitals);
+    UpdateLastCoeff_matrix(orbitals);
   }
   if(_use_densityfilter){
     UpdateLastDmat(orbitals);
   }
-//  if(_use_variationalfilter){
-//    UpdateLastBSE_R(orbitals);
-//    UpdateLastBSE_AR(orbitals);
-//    UpdateLastBSE_energies(orbitals);
-//  }
-  return result;
+return result;
 }
 
 std::vector<int> Statefilter::OscFilter(const Orbitals& orbitals) const {
@@ -283,6 +262,9 @@ std::vector<int> Statefilter::DeltaQFilter(const Orbitals& orbitals) const {
   return indexes;
 }
 
+
+
+// This overlap is wrong: it should be something like coeff_new * overlap * coeff_old
 Eigen::VectorXd Statefilter::CalculateOverlap(const Orbitals& orbitals) const {
   Eigen::MatrixXd coeffs = CalcOrthoCoeffs(orbitals);
   Eigen::VectorXd overlap = (coeffs * _laststatecoeff).cwiseAbs2();
@@ -291,34 +273,46 @@ Eigen::VectorXd Statefilter::CalculateOverlap(const Orbitals& orbitals) const {
 
 
 Eigen::VectorXd Statefilter::CalculateOverlapBSE(const Orbitals& orbitals) const {
-    
+    //Define some useful integers as the numeber of states, the number of occ and virt level
     int nostates=orbitals.NumberofStates(_statehist[0].Type());
-    Eigen::VectorXd overlap=Eigen::VectorXd::Zero(nostates);
+    int v =  orbitals.getBSEvmax()+1;
+    int c = orbitals.getBSEcmax()+1;
+    //Degine the AO overlap which is not step dependent unless you do geo. optimization  
+    AOOverlap S_ao ;
+    S_ao.Fill(orbitals.SetupDftBasis()); 
+    // Get the whole MO matrix at this step (n)
+    Eigen::MatrixXd MO_mat = orbitals.MOs().eigenvectors();
+    //Compute C as MO_mat(step n-1) * S_ao * MO_mat(step n)
+    Eigen::MatrixXd C = _laststatecoeff_mat.transpose() * S_ao.Matrix() * MO_mat;
+    
+    //Get the diagonal blocks (to be updated with off diagonal block and beyond TDA overlap
+    Eigen::MatrixXd M_vv = C.block(0,0,v,v);
+    Eigen::MatrixXd M_cc = C.block(v,v,c-v,c-v);
+    
+    // Let's define the Reference vector containing the singlet amplitudes at step n-1
+    Eigen::VectorXd Ref = _lastbse_R;
+    // I have to reshape this vector in a matrix form
+    Eigen::MatrixXd A_vc_old = Eigen::Map<Eigen::MatrixXd>(Ref.data(),c-v,v);
+    
+    //Compute A_vc * M_cc'
+    Eigen::MatrixXd two = A_vc_old *  M_cc;
+    // Inizialise the BSE overlap vector     
+    Eigen::VectorXd overlap_bse=Eigen::VectorXd::Zero(nostates);
     for(int i=0;i<nostates;i++){
         QMState state(_statehist[0].Type(),i,false);
-        Eigen::VectorXd a = orbitals.BSESinglets().eigenvectors().col(i);
-        Eigen::VectorXd b = orbitals.BSESinglets().eigenvectors2().col(i);
-        overlap(i) = 1- (std::norm(_lastbse_R.dot(a) - _lastbse_AR.dot(b)))/(std::norm(_lastbse_R.dot(_lastbse_R) - _lastbse_AR.dot(_lastbse_AR))) ;
+        Eigen::VectorXd a = orbitals.BSESinglets().eigenvectors().col(state.Index());
+        Eigen::MatrixXd A_vc = Eigen::Map<Eigen::MatrixXd>(a.data(),c-v,v); 
+        
+        Eigen::MatrixXd one =  M_vv * A_vc;
+        
+        
+        double ov = (two.transpose() * one).trace();
+        //overlap_bse(i) = (two.transpose() * one).trace(); 
+        overlap_bse(i) = std::abs(ov); 
     }
-    std::cout << " \n Testing overlap Singlet \n " << overlap << std::endl;
-    return overlap;
+    std::cout << " \n Testing overlap Singlet \n " << overlap_bse<< std::endl;
+    return overlap_bse;
 }
-
-//Eigen::VectorXd Statefilter::CalculateVariationalBSE(const Orbitals& orbitals) const {
-//    
-//    int nostates=orbitals.NumberofStates(_statehist[0].Type());
-//    Eigen::VectorXd overlap= CalculateOverlapBSE(orbitals);
-//    Eigen::VectorXd var = Eigen::VectorXd::Zero(nostates);
-//    
-//    for(int i=0;i<nostates;i++){
-//        QMState state(_statehist[0].Type(),i,false);
-//        Eigen::VectorXd diff_en = orbitals.BSESinglets().eigenvalues() - _lastbseenergies(i); 
-//        var(i) = diff_en(i)*diff_en(i)*overlap(i);
-//    }
-//    std::cout << " \n Testing Variational Singlet \n " << var << std::endl;
-//    return var;
-//}
-
 
 
 Eigen::VectorXd Statefilter::CalculateDNorm(const Orbitals& orbitals) const{
@@ -346,7 +340,8 @@ Eigen::MatrixXd Statefilter::CalcOrthoCoeffs(const Orbitals& orbitals) const {
       coeffs = orbitals.MOs().eigenvectors();
     }
   } else {
-    throw std::runtime_error("Overlap for excitons not implemented yet");
+    //throw std::runtime_error("Overlap for excitons not implemented yet");
+      std::cout << "Please be careful with this overlap" << std::endl;
   }
   return coeffs;
 }
@@ -360,12 +355,18 @@ void Statefilter::UpdateLastCoeff(const Orbitals& orbitals) {
   _laststatecoeff = ortho_coeffs.col(_statehist.back().Index() - offset);
 }
 
+
+void Statefilter::UpdateLastCoeff_matrix(const Orbitals& orbitals) {
+     _laststatecoeff_mat = orbitals.MOs().eigenvectors();
+  }
+
+
 void Statefilter::UpdateLastDmat(const Orbitals& orbitals){
     _lastdmat=orbitals.DensityMatrixFull(_statehist.back());
 }
 
 
-void Statefilter::UpdateLastBSE_R(const Orbitals& orbitals){
+void Statefilter::UpdateLastBSE_R(const Orbitals& orbitals){   
     _lastbse_R = 
            orbitals.BSESinglets().eigenvectors().col(_statehist.back().Index());
 }
@@ -424,7 +425,7 @@ std::vector<int> Statefilter::OverlapFilterBSE(const Orbitals& orbitals) const {
   Eigen::VectorXd Overlap = CalculateOverlapBSE(orbitals);
   int validelements = Overlap.size();
   for (int i = 0; i < Overlap.size(); i++) {
-    if (Overlap(i) > _overlapthreshold) {
+    if (Overlap(i) < _overlapthreshold) {
       validelements--;
     }
   }
@@ -432,7 +433,7 @@ std::vector<int> Statefilter::OverlapFilterBSE(const Orbitals& orbitals) const {
   std::vector<int> index = std::vector<int>(Overlap.size());
   std::iota(index.begin(), index.end(), 0);
   std::stable_sort(index.begin(), index.end(), [&Overlap](int i1, int i2) {
-    return Overlap[i1] < Overlap[i2];
+    return Overlap[i1] > Overlap[i2];
   });
 
   int offset = 0;
@@ -484,39 +485,7 @@ std::vector<int> Statefilter::DensityFilter(const Orbitals& orbitals) const {
   return indexes;
 }
 
-//std::vector<int> Statefilter::VariationalFilter(const Orbitals& orbitals) const { 
-//  std::vector<int> indexes;
-//  if (_statehist.size() <= 1) {
-//    indexes = std::vector<int>{_statehist[0].Index()};
-//    return indexes;
-//  }
-//  
-//  Eigen::VectorXd var = CalculateVariationalBSE(orbitals);
-//  
-//  int validelements = var.size();
-//  for (int i = 0; i < var.size(); i++) {
-//    if (var(i) > _variationalthreshold) {
-//      validelements--;
-//    }
-//  }
-//  std::vector<int> index = std::vector<int>(var.size());
-//  std::iota(index.begin(), index.end(), 0);
-//  std::stable_sort(index.begin(), index.end(), [&var](int i1, int i2) {
-//    return var[i1] < var[i2];
-//  });
-//  int offset = 0;
-//  if (_statehist[0].Type() == QMStateType::DQPstate) {
-//    offset = orbitals.getGWAmin();
-//  }
-//
-//  for (int i : index) {
-//    if (int(indexes.size()) == validelements) {
-//      break;
-//    }
-//    indexes.push_back(i + offset);
-//  }
-//  return indexes;
-//}
+
 
 
 void Statefilter::WriteToCpt(CheckpointWriter& w) const {
