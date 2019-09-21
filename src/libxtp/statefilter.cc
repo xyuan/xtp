@@ -293,9 +293,10 @@ Eigen::VectorXd Statefilter::CalculateOverlapBSE(const Orbitals& orbitals) const
     Eigen::VectorXd Ref = _lastbse_R;
     // I have to reshape this vector in a matrix form
     Eigen::MatrixXd A_vc_old = Eigen::Map<Eigen::MatrixXd>(Ref.data(),c-v,v);
-    
+   
     //Compute A_vc * M_cc'
     Eigen::MatrixXd two = A_vc_old *  M_cc;
+    
     // Inizialise the BSE overlap vector     
     Eigen::VectorXd overlap_bse=Eigen::VectorXd::Zero(nostates);
     for(int i=0;i<nostates;i++){
@@ -304,11 +305,13 @@ Eigen::VectorXd Statefilter::CalculateOverlapBSE(const Orbitals& orbitals) const
         Eigen::MatrixXd A_vc = Eigen::Map<Eigen::MatrixXd>(a.data(),c-v,v); 
         
         Eigen::MatrixXd one =  M_vv * A_vc;
-        
+        double ov_d = (one.transpose() * one).trace();
+        std::cout << "Normalization" << ov_d << std::endl;
         
         double ov = (two.transpose() * one).trace();
+        
         //overlap_bse(i) = (two.transpose() * one).trace(); 
-        overlap_bse(i) = std::abs(ov); 
+        overlap_bse(i) = std::abs(ov/ov_d); 
     }
     std::cout << " \n Testing overlap Singlet \n " << overlap_bse<< std::endl;
     return overlap_bse;
