@@ -288,12 +288,10 @@ Eigen::VectorXd Statefilter::CalculateOverlapBSE(const Orbitals& orbitals) const
     //Get the diagonal blocks (to be updated with off diagonal block and beyond TDA overlap
     Eigen::MatrixXd M_vv = C.block(0,0,v,v);
     Eigen::MatrixXd M_cc = C.block(v,v,c-v,c-v);
-    
     // Let's define the Reference vector containing the singlet amplitudes at step n-1
     Eigen::VectorXd Ref = _lastbse_R;
     // I have to reshape this vector in a matrix form
-    Eigen::MatrixXd A_vc_old = Eigen::Map<Eigen::MatrixXd>(Ref.data(),c-v,v);
-   
+    Eigen::MatrixXd A_vc_old = Eigen::Map<Eigen::MatrixXd>(Ref.data(),v,c-v);
     //Compute A_vc * M_cc'
     Eigen::MatrixXd two = A_vc_old *  M_cc;
     
@@ -302,19 +300,17 @@ Eigen::VectorXd Statefilter::CalculateOverlapBSE(const Orbitals& orbitals) const
     for(int i=0;i<nostates;i++){
         QMState state(_statehist[0].Type(),i,false);
         Eigen::VectorXd a = orbitals.BSESinglets().eigenvectors().col(state.Index());
-        Eigen::MatrixXd A_vc = Eigen::Map<Eigen::MatrixXd>(a.data(),c-v,v); 
+        Eigen::MatrixXd A_vc = Eigen::Map<Eigen::MatrixXd>(a.data(),v,c-v); 
         
         Eigen::MatrixXd one =  M_vv * A_vc;
-        double ov_d = (one.transpose() * one).trace();
-        std::cout << "Normalization" << ov_d << std::endl;
         
-        double ov = (two.transpose() * one).trace();
-        
-        //overlap_bse(i) = (two.transpose() * one).trace(); 
-        overlap_bse(i) = std::abs(ov/ov_d); 
+        Eigen::MatrixXd O = two.transpose() * one;
+        double ov = (O).trace();
+        overlap_bse(i) = ov; 
+         
     }
-    std::cout << " \n Testing overlap Singlet \n " << overlap_bse<< std::endl;
-    return overlap_bse;
+    std::cout << " \n Testing overlap Singlet \n " << overlap_bse.cwiseAbs() << std::endl;
+    return overlap_bse.cwiseAbs();
 }
 
 
