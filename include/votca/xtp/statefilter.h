@@ -57,21 +57,21 @@ class Statefilter {
   std::vector<int> DeltaQFilter(const Orbitals& orbitals) const;
   std::vector<int> OverlapFilter(const Orbitals& orbitals) const;
   std::vector<int> OverlapFilterBSE(const Orbitals& orbitals) const;
-  
+  std::vector<int> WassersteinFilter(const Orbitals& orbitals) const;
  //std::vector<int> VariationalFilter(const Orbitals& orbitals) const;
  std::vector<int> DensityFilter(const Orbitals& orbitals) const;
-
+std::vector<int> MAE(const Orbitals& orbitals) const;
+std::vector<int> MSE(const Orbitals& orbitals) const;
   Eigen::VectorXd CalculateOverlap(const Orbitals& orbitals) const;
   Eigen::VectorXd CalculateOverlapBSE(const Orbitals& orbitals) const;
   Eigen::VectorXd CalculateDNorm(const Orbitals& orbitals) const;
-  //Eigen::VectorXd CalculateVariationalBSE(const Orbitals& orbitals) const;
-  
+  Eigen::VectorXd CalculateWassersteinNorm(const Orbitals& orbitals) const;
   void UpdateLastCoeff(const Orbitals& orbitals);
   void UpdateLastCoeff_matrix(const Orbitals& orbitals);
   void UpdateLastDmat(const Orbitals& orbitals);
   void UpdateLastBSE_R(const Orbitals& orbitals);
   void UpdateLastBSE_AR(const Orbitals& orbitals);
-  void UpdateLastBSE_energies(const Orbitals& orbitals);
+  void UpdateLastBSE_energy(const Orbitals& orbitals);
   
   Eigen::MatrixXd CalcOrthoCoeffs(const Orbitals& orbitals) const;
 
@@ -91,7 +91,9 @@ class Statefilter {
   bool _use_overlapfilter_bse = false;
   bool _use_variationalfilter = false;
   bool _use_densityfilter =false;
-  
+  bool _use_maefilter = false;
+  bool _use_msefilter = false;
+  bool _use_wasserstein = false;
   
   double _overlapthreshold = 0.0;
   double _variationalthreshold = 0.0;
@@ -101,7 +103,7 @@ class Statefilter {
   Eigen::MatrixXd _laststatecoeff_mat; 
   Eigen::VectorXd _lastbse_R;
   Eigen::VectorXd _lastbse_AR;
-  Eigen::VectorXd _lastbseenergies;
+  double _lastbseenergy;
   Eigen::MatrixXd _lastdmat;
   
   

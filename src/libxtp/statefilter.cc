@@ -20,6 +20,8 @@
 #include "votca/xtp/aomatrix.h"
 #include <numeric>
 #include <votca/xtp/statefilter.h>
+#include <eigen3/Eigen/src/Core/Matrix.h>
+#include <c++/5/cmath>
 
 namespace votca {
 namespace xtp {
@@ -40,6 +42,22 @@ void Statefilter::Initialize(tools::Property& options) {
     _use_overlapfilter_bse = true;
     _overlapthreshold =
         options.ifExistsReturnElseReturnDefault<double>("overlapbse", 0.0);
+  }
+  if (options.exists("mae")) {
+    _use_maefilter = true;
+    _overlapthreshold =
+        options.ifExistsReturnElseReturnDefault<double>("mae", 0.0);
+  }
+  if (options.exists("mse")) {
+    _use_msefilter = true;
+    _overlapthreshold =
+        options.ifExistsReturnElseReturnDefault<double>("mse", 0.0);
+  }
+  
+  if (options.exists("wasserstein")) {
+    _use_wasserstein = true;
+    _overlapthreshold =
+        options.ifExistsReturnElseReturnDefault<double>("wasserstein", 0.0);
   }
   
   if (options.exists("density")) {
@@ -70,10 +88,11 @@ void Statefilter::Initialize(tools::Property& options) {
         "charge_transfer.threshold");
     _fragment_dQ.push_back(reg);
   }
+  
   if (_use_dQfilter && _use_localisationfilter) {
     throw std::runtime_error(
         "Cannot use localisation and charge_transfer filter at the same time.");
-  }
+  } 
 }
 
 void Statefilter::PrintInfo() const {
@@ -131,9 +150,26 @@ void Statefilter::PrintInfo() const {
                              << flush;
   }
   if (_use_dQfilter + _use_oscfilter + _use_localisationfilter +
-          _use_overlapfilter + _use_densityfilter + _use_overlapfilter_bse + _use_variationalfilter<
+          _use_overlapfilter + _use_densityfilter + _use_overlapfilter_bse + _use_maefilter + _use_msefilter + _use_wasserstein<
       1) {
     XTP_LOG(logDEBUG, *_log) << "WARNING: No filter is used " << flush;
+  }
+  if (_use_maefilter) {
+    XTP_LOG(logDEBUG, *_log) << "WARNING: I am combining BSE-Overlap and Density. It might not work as you expect"
+                             << flush;
+    
+    
+  }
+   if (_use_msefilter) {
+    XTP_LOG(logDEBUG, *_log) << "WARNING: I am combining BSE-Overlap and Density. It might not work as you expect"
+                             << flush;
+    
+    
+  }
+  if (_use_wasserstein) {
+    XTP_LOG(logDEBUG, *_log) << "WARNING: I am using Wasserstein" << flush;
+    
+    
   }
 }
 
@@ -165,7 +201,7 @@ std::vector<int> Statefilter::CollapseResults(
 QMState Statefilter::CalcState(const Orbitals& orbitals) const {
 
   if (_use_dQfilter + _use_oscfilter + _use_localisationfilter +
-          _use_overlapfilter + _use_densityfilter +_use_overlapfilter_bse 
+          _use_overlapfilter + _use_densityfilter +_use_overlapfilter_bse + _use_maefilter + _use_msefilter + _use_wasserstein
            <
       1) {
     return _statehist[0];
@@ -191,7 +227,15 @@ QMState Statefilter::CalcState(const Orbitals& orbitals) const {
   if (_use_dQfilter) {
     results.push_back(DeltaQFilter(orbitals));
   }
-
+  if (_use_maefilter ) {
+    results.push_back(MAE(orbitals));
+  }
+  if (_use_msefilter ) {
+    results.push_back(MSE(orbitals));
+  }
+  if (_use_wasserstein ) {
+    results.push_back(WassersteinFilter(orbitals));
+  }
   std::vector<int> result = CollapseResults(results);
   QMState state;
   if (result.size() < 1) {
@@ -214,11 +258,26 @@ QMState Statefilter::CalcStateAndUpdate(const Orbitals& orbitals) {
   }
   if (_use_overlapfilter_bse) {
     UpdateLastBSE_R(orbitals);
-    //UpdateLastBSE_AR(orbitals);
     UpdateLastCoeff_matrix(orbitals);
   }
   if(_use_densityfilter){
     UpdateLastDmat(orbitals);
+  }
+  if (_use_maefilter ) {
+    UpdateLastBSE_R(orbitals);
+    UpdateLastCoeff_matrix(orbitals);
+    UpdateLastDmat(orbitals);
+    UpdateLastBSE_energy(orbitals);
+  }
+  if (_use_msefilter ) {
+    UpdateLastBSE_R(orbitals);
+    UpdateLastCoeff_matrix(orbitals);
+    UpdateLastDmat(orbitals);
+    UpdateLastBSE_energy(orbitals);
+  }
+  if (_use_wasserstein ) {
+      UpdateLastDmat(orbitals);
+      UpdateLastBSE_energy(orbitals);
   }
 return result;
 }
@@ -309,10 +368,11 @@ Eigen::VectorXd Statefilter::CalculateOverlapBSE(const Orbitals& orbitals) const
         overlap_bse(i) = ov; 
          
     }
-    std::cout << " \n Testing overlap Singlet \n " << overlap_bse.cwiseAbs() << std::endl;
+    //std::cout << " \n Testing overlap Singlet \n " << overlap_bse.cwiseAbs() << std::endl;
+    
     return overlap_bse.cwiseAbs();
+    
 }
-
 
 Eigen::VectorXd Statefilter::CalculateDNorm(const Orbitals& orbitals) const{
     
@@ -324,9 +384,54 @@ Eigen::VectorXd Statefilter::CalculateDNorm(const Orbitals& orbitals) const{
         Eigen::MatrixXd diff = (orbitals.DensityMatrixFull(state)-_lastdmat);
         norm(i) = diff.norm()/(_lastdmat.norm());
     }
-    std::cout << " \n || D_new - D_old||/||D_old|| \n" << norm << std::endl;
     return norm;    
 }
+
+    
+Eigen::VectorXd Statefilter::CalculateWassersteinNorm(const Orbitals& orbitals) const{
+    int nostates=orbitals.NumberofStates(_statehist[0].Type());
+    Eigen::VectorXd wasserstein_norm=Eigen::VectorXd::Zero(nostates);
+    
+    std::ofstream txtout;
+    std::cout << "Density Matrix dimension " << _lastdmat.rows() << " " << _lastdmat.cols() << std::endl;
+    
+    std::string path = "./Density/" ;
+    std::cout << "Writing density matrix files in "<< path <<  std::endl;
+    //This generates the file for the old density matrix
+    std::string file_name = path+"lastdensitymatrix.txt" ;
+    txtout.open(file_name);
+    txtout << _lastdmat;
+    txtout.close();
+    //This loop generates the files for all the new states (the ones to be compared with the old density)
+    for(int i=0;i<nostates;i++){
+        QMState state(_statehist[0].Type(),i,false);
+        file_name = path+"density_s"+std::to_string(i+1)+".txt";
+        txtout.open(file_name);
+        txtout << orbitals.DensityMatrixFull(state) ;
+        txtout.close();
+    }
+    
+    std::string file_out = "wasserstein_out.txt";
+    std::cout << "Running Wasserstein Python script" << std::endl;
+    
+    std::string command = "python wasserstein.py " + std::to_string(nostates) + " " + file_out ;
+    std::system(command.c_str());
+    
+    std::cout << "Printing Wasserstein measure in " << file_out << std::endl   ;
+    std::ifstream ifs( file_out );
+
+    std::vector< double > values;
+    double val;
+    int i = 0;
+    while( ifs >> val ){
+        wasserstein_norm(i) = val;
+        i += 1;
+    }
+//    std::cout << "\n Wasserstein distance on Excited State Density matrix \n" << std::endl;
+//    std::cout << wasserstein_norm << std::endl;
+    return wasserstein_norm;                
+}
+
 
 
 Eigen::MatrixXd Statefilter::CalcOrthoCoeffs(const Orbitals& orbitals) const {
@@ -364,7 +469,6 @@ void Statefilter::UpdateLastDmat(const Orbitals& orbitals){
     _lastdmat=orbitals.DensityMatrixFull(_statehist.back());
 }
 
-
 void Statefilter::UpdateLastBSE_R(const Orbitals& orbitals){   
     _lastbse_R = 
            orbitals.BSESinglets().eigenvectors().col(_statehist.back().Index());
@@ -375,8 +479,8 @@ void Statefilter::UpdateLastBSE_AR(const Orbitals& orbitals){
           orbitals.BSESinglets().eigenvectors2().col(_statehist.back().Index());
 }
 
-void Statefilter::UpdateLastBSE_energies(const Orbitals& orbitals){
-    _lastbseenergies = orbitals.BSESinglets().eigenvalues(); 
+void Statefilter::UpdateLastBSE_energy(const Orbitals& orbitals){
+    _lastbseenergy = orbitals.BSESinglets().eigenvalues()(_statehist.back().Index());
 }
 
 std::vector<int> Statefilter::OverlapFilter(const Orbitals& orbitals) const {
@@ -449,7 +553,6 @@ std::vector<int> Statefilter::OverlapFilterBSE(const Orbitals& orbitals) const {
   return indexes;
 }
 
-
 std::vector<int> Statefilter::DensityFilter(const Orbitals& orbitals) const { 
   std::vector<int> indexes;
   if (_statehist.size() <= 1) {
@@ -486,6 +589,177 @@ std::vector<int> Statefilter::DensityFilter(const Orbitals& orbitals) const {
 
 
 
+std::vector<int> Statefilter::WassersteinFilter(const Orbitals& orbitals) const { 
+  std::vector<int> indexes;
+  if (_statehist.size() <= 1) {
+    indexes = std::vector<int>{_statehist[0].Index()};
+    return indexes;
+  }
+  
+  Eigen::VectorXd ddnorm = CalculateWassersteinNorm(orbitals);
+  Eigen::VectorXd ones = Eigen::VectorXd::Ones(ddnorm.size());
+  Eigen::VectorXd en_m = orbitals.BSESinglets().eigenvalues() - (_lastbseenergy * ones) ;
+  Eigen::VectorXd dnorm = ddnorm + en_m.cwiseAbs();
+  
+  std::cout << "\n Wasserstein distance on Excited State Density matrix + |delta energy| \n" << std::endl;
+  std::cout << ddnorm << std::endl;
+  std::cout << "\n Energy Difference \n" << std::endl;
+  std::cout << en_m << std::endl;
+  
+  int validelements = dnorm.size();
+//  for (int i = 0; i < dnorm.size(); i++) {
+//    if (dnorm(i) > _dmatthreshold) {
+//      validelements--;
+//    }
+//  }
+  std::vector<int> index = std::vector<int>(dnorm.size());
+  std::iota(index.begin(), index.end(), 0);
+  std::stable_sort(index.begin(), index.end(), [&dnorm](int i1, int i2) {
+    return dnorm[i1] < dnorm[i2];
+  });
+  int offset = 0;
+  if (_statehist[0].Type() == QMStateType::DQPstate) {
+    offset = orbitals.getGWAmin();
+  }
+
+  for (int i : index) {
+    if (int(indexes.size()) == validelements) {
+      break;
+    }
+    indexes.push_back(i + offset);
+  }
+  return indexes;
+}
+
+
+
+
+
+std::vector<int> Statefilter::MAE(const Orbitals& orbitals) const {
+    std::vector<int> indexes;
+  if (_statehist.size() <= 1) {
+    indexes = std::vector<int>{_statehist[0].Index()};
+    return indexes;
+  }
+    
+  Eigen::VectorXd dnorm = CalculateDNorm(orbitals);
+  
+  Eigen::VectorXd overlap = CalculateOverlapBSE(orbitals);
+    Eigen::VectorXd ones = Eigen::VectorXd::Ones(dnorm.size());
+  
+  Eigen::VectorXd en_m = orbitals.BSESinglets().eigenvalues() - (_lastbseenergy * ones) ;
+  Eigen::VectorXd en_p = orbitals.BSESinglets().eigenvalues() + (_lastbseenergy * ones) ;    
+  
+  Eigen::VectorXd en = en_m.array()/en_p.array();
+  
+  Eigen::VectorXd d = (dnorm + (-overlap + ones) + en.cwiseAbs())/3.;
+    
+  Eigen::MatrixXd result = Eigen::MatrixXd::Zero(dnorm.size(),3);
+  result.col(0) = en;
+  result.col(1) = dnorm;
+  result.col(2) = overlap;
+  
+  std::cout << "\n !s3 " << orbitals.BSESinglets().eigenvalues()(2) << std::endl;
+  std::cout << "\n !s4 " << orbitals.BSESinglets().eigenvalues()(3) << std::endl;
+  
+  std::cout << "\n !f3 " << orbitals.Oscillatorstrengths()(2) << std::endl;
+  std::cout << "\n !f4 " << orbitals.Oscillatorstrengths()(3) << std::endl;
+  
+  std::cout << "\n Energy Density Overlap \n" << std::endl;
+  std::cout << result << std::endl;
+  
+  std::cout << "\n !den3 " << en(2) << std::endl;
+  std::cout << "\n !den4 " << en(3) << std::endl;
+  
+  std::cout << "\n !ddens3 " << dnorm(2) << std::endl;
+  std::cout << "\n !ddens4 " << dnorm(3) << std::endl;
+  
+  std::cout << "\n !overlap3 " << overlap(2) << std::endl;
+  std::cout << "\n !overlap4 " << overlap(3) << std::endl;
+  
+  int validelements = d.size();
+  
+  std::vector<int> index = std::vector<int>(d.size());
+  std::iota(index.begin(), index.end(), 0);
+  std::stable_sort(index.begin(), index.end(), [&d](int i1, int i2) {
+    return d[i1] < d[i2];
+  });
+  int offset = 0;
+  if (_statehist[0].Type() == QMStateType::DQPstate) {
+    offset = orbitals.getGWAmin();
+  }
+
+  for (int i : index) {
+    if (int(indexes.size()) == validelements) {
+      break;
+    }
+    indexes.push_back(i + offset);
+  }
+  return indexes;
+} 
+
+
+std::vector<int> Statefilter::MSE(const Orbitals& orbitals) const {
+    std::vector<int> indexes;
+  if (_statehist.size() <= 1) {
+    indexes = std::vector<int>{_statehist[0].Index()};
+    return indexes;
+  }
+    
+  Eigen::VectorXd dnorm = CalculateDNorm(orbitals);
+  Eigen::VectorXd overlap = CalculateOverlapBSE(orbitals);
+  Eigen::VectorXd ones = Eigen::VectorXd::Ones(dnorm.size());
+  Eigen::VectorXd en = orbitals.BSESinglets().eigenvalues() - _lastbseenergy * ones ;
+
+  Eigen::VectorXd d = (dnorm.cwiseAbs2() + (-overlap + ones).cwiseAbs2() + en.cwiseAbs2())/3.;
+  
+  
+  Eigen::MatrixXd result = Eigen::MatrixXd::Zero(dnorm.size(),3);
+  result.col(0) = en;
+  result.col(1) = dnorm;
+  result.col(2) = overlap;
+  
+  
+  std::cout << "\n !s3 " << orbitals.BSESinglets().eigenvalues()(2) << std::endl;
+  std::cout << "\n !s4 " << orbitals.BSESinglets().eigenvalues()(3) << std::endl;
+  
+  std::cout << "\n !f3 " << orbitals.Oscillatorstrengths()(2) << std::endl;
+  std::cout << "\n !f4 " << orbitals.Oscillatorstrengths()(3) << std::endl;
+  
+  std::cout << "\n Energy Density Overlap \n" << std::endl;
+  std::cout << result << std::endl;
+  
+  std::cout << "\n !den3 " << en(2) << std::endl;
+  std::cout << "\n !den4 " << en(3) << std::endl;
+  
+  std::cout << "\n !ddens3 " << dnorm(2) << std::endl;
+  std::cout << "\n !ddens4 " << dnorm(3) << std::endl;
+  
+  std::cout << "\n !overlap3 " << overlap(2) << std::endl;
+  std::cout << "\n !overlap4 " << overlap(3) << std::endl;
+  
+  
+  int validelements = d.size();
+ 
+  std::vector<int> index = std::vector<int>(d.size());
+  std::iota(index.begin(), index.end(), 0);
+  std::stable_sort(index.begin(), index.end(), [&d](int i1, int i2) {
+    return d[i1] < d[i2];
+  });
+  int offset = 0;
+  if (_statehist[0].Type() == QMStateType::DQPstate) {
+    offset = orbitals.getGWAmin();
+  }
+
+  for (int i : index) {
+    if (int(indexes.size()) == validelements) {
+      break;
+    }
+    indexes.push_back(i + offset);
+  }
+  return indexes;
+} 
+
 
 void Statefilter::WriteToCpt(CheckpointWriter& w) const {
   std::vector<std::string> statehiststring;
@@ -499,12 +773,13 @@ void Statefilter::WriteToCpt(CheckpointWriter& w) const {
 
   w(_use_overlapfilter, "overlapfilter");
   w(_use_overlapfilter_bse, "overlapfilterbse");
-//  w(_use_variationalfilter, "variationalfilter");
-//  w(_variationalthreshold, "variationalthreshold");
+  w(_use_maefilter, "maefilter");
+  w(_use_msefilter, "msefilter");
+  w(_use_wasserstein, "wasserstein");
   w(_overlapthreshold, "overlapthreshold");
   w(_lastbse_R, "lastbse_R");
   w(_lastbse_AR, "lastbse_AR");
-  w(_lastbseenergies, "lastbseenergies");
+  w(_lastbseenergy, "lastbseenergies");
   
   
   w(_use_densityfilter, "densityfilter");
@@ -545,13 +820,16 @@ void Statefilter::ReadFromCpt(CheckpointReader& r) {
   r(_overlapthreshold, "overlapthreshold");
   r(_laststatecoeff, "laststatecoeff");
   r(_use_overlapfilter_bse, "overlapfilterbse");
+  r(_use_maefilter, "maefilter");
+  r(_use_msefilter, "msefilter");
+  r(_use_wasserstein, "wasserstein");
   r(_lastbse_R, "lastbse_R");
   r(_lastbse_AR, "lastbse_AR");
   
   r(_use_densityfilter, "densityfilter");
   r(_dmatthreshold, "dmatthreshold");
   r(_lastdmat, "lastdmat");
-  r(_lastbseenergies, "lastbseenergies");
+  r(_lastbseenergy, "lastbseenergies");
   
   r(_use_localisationfilter, "localisationfilter");
   r(_loc_threshold, "locthreshold");
