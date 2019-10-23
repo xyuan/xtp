@@ -394,7 +394,8 @@ Eigen::VectorXd Statefilter::CalculateWassersteinNorm(const Orbitals& orbitals) 
     
     std::ofstream txtout;
     std::cout << "Density Matrix dimension " << _lastdmat.rows() << " " << _lastdmat.cols() << std::endl;
-    
+    std::string cmd_mkdir = "mkdir Density";
+    std::system(cmd_mkdir.c_str());
     std::string path = "./Density/" ;
     std::cout << "Writing density matrix files in "<< path <<  std::endl;
     //This generates the file for the old density matrix
@@ -427,8 +428,7 @@ Eigen::VectorXd Statefilter::CalculateWassersteinNorm(const Orbitals& orbitals) 
         wasserstein_norm(i) = val;
         i += 1;
     }
-//    std::cout << "\n Wasserstein distance on Excited State Density matrix \n" << std::endl;
-//    std::cout << wasserstein_norm << std::endl;
+
     return wasserstein_norm;                
 }
 
