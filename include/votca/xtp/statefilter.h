@@ -43,6 +43,7 @@ class Statefilter {
   void setLogger(Logger* log) { _log = log; }
   void setInitialState(const QMState& state) { _statehist.push_back(state); }
   void PrintInfo() const;
+  
   QMState InitialState() const { return _statehist[0]; }
   QMState CalcStateAndUpdate(const Orbitals& orbitals);
   QMState CalcState(const Orbitals& orbitals) const;
@@ -72,7 +73,7 @@ std::vector<int> MSE(const Orbitals& orbitals) const;
   void UpdateLastBSE_R(const Orbitals& orbitals);
   void UpdateLastBSE_AR(const Orbitals& orbitals);
   void UpdateLastBSE_energy(const Orbitals& orbitals);
-  
+  void calculateCube(const Orbitals& orbitals,Eigen::MatrixXd mat, std::string fileout) const;
   Eigen::MatrixXd CalcOrthoCoeffs(const Orbitals& orbitals) const;
 
   std::vector<int> CollapseResults(
@@ -80,6 +81,9 @@ std::vector<int> MSE(const Orbitals& orbitals) const;
   std::vector<int> ComparePairofVectors(std::vector<int>& vec1,
                                         std::vector<int>& vec2) const;
 
+  
+  Eigen::VectorXd EvaluateBasisAtPosition(const AOBasis& dftbasis,
+                                                 const Eigen::Vector3d& pos) const;
   Logger* _log;
 
   std::vector<QMState> _statehist;
@@ -114,6 +118,10 @@ std::vector<int> MSE(const Orbitals& orbitals) const;
   bool _use_dQfilter = false;
   std::vector<QMFragment<BSE_Population> > _fragment_dQ;
   double _dQ_threshold = 0.0;
+  double _padding = 3.5;
+  int _xsteps = 40;
+  int _ysteps = 40;
+  int _zsteps = 40;
 };
 }  // namespace xtp
 }  // namespace votca

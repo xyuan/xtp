@@ -168,8 +168,6 @@ void Statefilter::PrintInfo() const {
   }
   if (_use_wasserstein) {
     XTP_LOG(logDEBUG, *_log) << "WARNING: I am using Wasserstein" << flush;
-    
-    
   }
 }
 
@@ -197,6 +195,29 @@ std::vector<int> Statefilter::CollapseResults(
     return result;
   }
 }
+
+
+Eigen::VectorXd Statefilter::EvaluateBasisAtPosition(const AOBasis& dftbasis,
+                                                 const Eigen::Vector3d& pos) const {
+
+  // get value of orbitals at each gridpoint
+  Eigen::VectorXd tmat = Eigen::VectorXd::Zero(dftbasis.AOBasisSize());
+  for (const AOShell& shell : dftbasis) {
+    const double decay = shell.getMinDecay();
+    const Eigen::Vector3d& shellpos = shell.getPos();
+    Eigen::Vector3d dist = shellpos - pos;
+    double distsq = dist.squaredNorm();
+    // if contribution is smaller than -ln(1e-10), calc density
+    if ((decay * distsq) < 20.7) {
+      Eigen::VectorBlock<Eigen::VectorXd> tmat_block =
+          tmat.segment(shell.getStartIndex(), shell.getNumFunc());
+      shell.EvalAOspace(tmat_block, pos);
+    }
+  }
+  return tmat;
+}
+
+
 
 QMState Statefilter::CalcState(const Orbitals& orbitals) const {
 
@@ -368,7 +389,7 @@ Eigen::VectorXd Statefilter::CalculateOverlapBSE(const Orbitals& orbitals) const
         overlap_bse(i) = ov; 
          
     }
-    //std::cout << " \n Testing overlap Singlet \n " << overlap_bse.cwiseAbs() << std::endl;
+    std::cout << " \n Testing overlap Singlet \n " << overlap_bse.cwiseAbs() << std::endl;
     
     return overlap_bse.cwiseAbs();
     
@@ -388,28 +409,121 @@ Eigen::VectorXd Statefilter::CalculateDNorm(const Orbitals& orbitals) const{
 }
 
     
+//Eigen::VectorXd Statefilter::CalculateWassersteinNorm(const Orbitals& orbitals) const{
+//    int nostates = orbitals.NumberofStates(_statehist[0].Type());
+//    Eigen::VectorXd wasserstein_norm = Eigen::VectorXd::Zero(nostates);
+//    std::ofstream txtout;
+//    std::cout << "\n Density Matrix dimension " << _lastdmat.rows() << "\t" << _lastdmat.cols() << std::endl;
+//    std::string cmd_mkdir = "mkdir Density";
+//    std::system(cmd_mkdir.c_str());
+//    std::string path = "./Density/" ;
+//    std::cout << "Writing density matrix files in "<< path <<  std::endl;
+//    //This generates the file for the old density matrix
+//    std::string file_name = path+"lastdensitymatrix.txt" ;
+//    txtout.open(file_name);
+//    txtout << _lastdmat ;
+//    txtout.close();
+//    //This loop generates the files for all the new states (the ones to be compared with the old density)
+//    for(int i=0;i<nostates;i++){
+//        QMState state(_statehist[0].Type(),i,false);
+//        file_name = path+"density_s"+std::to_string(i+1)+".txt";
+//        txtout.open(file_name);
+//        txtout <<  orbitals.DensityMatrixFull(state);
+//        txtout.close();
+//    }
+//    
+//    std::string file_out = "wasserstein_out.txt";
+//    std::cout << "Running Wasserstein Python script" << std::endl;
+//    
+//    std::string command = "python wasserstein.py " + std::to_string(nostates) + " " + file_out ;
+//    std::system(command.c_str());
+//    
+//    std::cout << "Printing Wasserstein measure in " << file_out << std::endl   ;
+//    std::ifstream ifs( file_out );
+//
+//    std::vector< double > values;
+//    double val;
+//    int i = 0;
+//    while( ifs >> val ){
+//        wasserstein_norm(i) = val;
+//        i += 1;
+//    }
+//    
+//    return wasserstein_norm;                
+//}
+
+
+void Statefilter::calculateCube(const Orbitals& orbitals, Eigen::MatrixXd mat, std::string fileout) const {
+  // generate cube grid
+  const QMMolecule& atoms = orbitals.QMAtoms();
+  std::pair<Eigen::Vector3d, Eigen::Vector3d> minmax = atoms.CalcSpatialMinMax();  
+  double xstart = minmax.first.x() - _padding;
+  double xstop = minmax.second.x() + _padding;
+  double ystart = minmax.first.y() - _padding;
+  double ystop = minmax.second.y() + _padding;
+  double zstart = minmax.first.z() - _padding;
+  double zstop = minmax.second.z() + _padding;
+
+  double xincr = (xstop - xstart) / double(_xsteps);
+  double yincr = (ystop - ystart) / double(_ysteps);
+  double zincr = (zstop - zstart) / double(_zsteps);
+  
+  // load DFT basis set (element-wise information) from xml file
+  BasisSet dftbs;
+  dftbs.Load(orbitals.getDFTbasisName());
+  // fill DFT AO basis by going through all atoms
+  AOBasis dftbasis;
+  dftbasis.Fill(dftbs, orbitals.QMAtoms());
+  
+  
+  std::ofstream out;
+  out.open(fileout);
+  // eval density at cube grid points
+  for (int ix = 0; ix <= _xsteps; ix++) {
+    double x = xstart + double(ix) * xincr;
+    for (int iy = 0; iy <= _ysteps; iy++) {
+      double y = ystart + double(iy) * yincr;
+      int Nrecord = 0;
+      for (int iz = 0; iz <= _zsteps; iz++) {
+        double z = zstart + double(iz) * zincr;
+        Nrecord++;
+        Eigen::Vector3d pos(x, y, z);
+        Eigen::VectorXd tmat = EvaluateBasisAtPosition(dftbasis, pos);
+        double value = 0.0;
+        value = (tmat.transpose() * mat * tmat).value();
+        
+//        if (Nrecord == 6 || iz == _zsteps) {
+//          out << boost::format("%1$E \n") % value;
+//          Nrecord = 0;
+//        } else {
+          out << boost::format("%1$E ") % value;
+//        }
+      }  // z-component
+    }    // y-component
+  }  // x-component
+
+  out.close();
+  
+  return;
+}
+
 Eigen::VectorXd Statefilter::CalculateWassersteinNorm(const Orbitals& orbitals) const{
-    int nostates=orbitals.NumberofStates(_statehist[0].Type());
-    Eigen::VectorXd wasserstein_norm=Eigen::VectorXd::Zero(nostates);
+    int nostates = orbitals.NumberofStates(_statehist[0].Type());
+    Eigen::VectorXd wasserstein_norm = Eigen::VectorXd::Zero(nostates);
     
-    std::ofstream txtout;
-    std::cout << "Density Matrix dimension " << _lastdmat.rows() << " " << _lastdmat.cols() << std::endl;
     std::string cmd_mkdir = "mkdir Density";
     std::system(cmd_mkdir.c_str());
     std::string path = "./Density/" ;
-    std::cout << "Writing density matrix files in "<< path <<  std::endl;
-    //This generates the file for the old density matrix
+    std::cout << "Writing density files in "<< path <<  std::endl;
+    //This generates the file for the old density 
     std::string file_name = path+"lastdensitymatrix.txt" ;
-    txtout.open(file_name);
-    txtout << _lastdmat;
-    txtout.close();
+    //Calculate old density
+    calculateCube(orbitals,_lastdmat,file_name);
     //This loop generates the files for all the new states (the ones to be compared with the old density)
     for(int i=0;i<nostates;i++){
         QMState state(_statehist[0].Type(),i,false);
         file_name = path+"density_s"+std::to_string(i+1)+".txt";
-        txtout.open(file_name);
-        txtout << orbitals.DensityMatrixFull(state) ;
-        txtout.close();
+        calculateCube(orbitals,orbitals.DensityMatrixFull(state),file_name);
     }
     
     std::string file_out = "wasserstein_out.txt";
@@ -428,10 +542,9 @@ Eigen::VectorXd Statefilter::CalculateWassersteinNorm(const Orbitals& orbitals) 
         wasserstein_norm(i) = val;
         i += 1;
     }
-
+    
     return wasserstein_norm;                
 }
-
 
 
 Eigen::MatrixXd Statefilter::CalcOrthoCoeffs(const Orbitals& orbitals) const {
@@ -597,21 +710,21 @@ std::vector<int> Statefilter::WassersteinFilter(const Orbitals& orbitals) const 
   }
   
   Eigen::VectorXd ddnorm = CalculateWassersteinNorm(orbitals);
-  Eigen::VectorXd ones = Eigen::VectorXd::Ones(ddnorm.size());
+  Eigen::VectorXd ones = Eigen::VectorXd::Ones(ddnorm.size()); 
   Eigen::VectorXd en_m = orbitals.BSESinglets().eigenvalues() - (_lastbseenergy * ones) ;
-  Eigen::VectorXd dnorm = ddnorm + en_m.cwiseAbs();
-  
-  std::cout << "\n Wasserstein distance on Excited State Density matrix + |delta energy| \n" << std::endl;
-  std::cout << ddnorm << std::endl;
-  std::cout << "\n Energy Difference \n" << std::endl;
-  std::cout << en_m << std::endl;
-  
+
+  Eigen::VectorXd dnorm = ddnorm.array();// + penalty_num;
+   
   int validelements = dnorm.size();
 //  for (int i = 0; i < dnorm.size(); i++) {
-//    if (dnorm(i) > _dmatthreshold) {
+//    if (en_m(i) > 0.1*en_m.maxCoeff()) {
 //      validelements--;
 //    }
 //  }
+    
+  std::cout << "\n Wasserstein distance on Excited State Density matrix \n" << std::endl;
+  std::cout << ddnorm <<  std::endl;
+     
   std::vector<int> index = std::vector<int>(dnorm.size());
   std::iota(index.begin(), index.end(), 0);
   std::stable_sort(index.begin(), index.end(), [&dnorm](int i1, int i2) {
@@ -630,8 +743,6 @@ std::vector<int> Statefilter::WassersteinFilter(const Orbitals& orbitals) const 
   }
   return indexes;
 }
-
-
 
 
 
