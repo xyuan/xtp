@@ -420,10 +420,11 @@ Eigen::VectorXd StateTracker::CalculateWassersteinNorm(const Orbitals& orbitals)
     std::string cmd_mkdir = "mkdir Density";
     std::system(cmd_mkdir.c_str());
     std::string path = "./Density/" ;
-    std::cout << "Writing density files in "<< path <<  std::endl;
+    std::cout << " \n Writing density files in "<< path <<  std::endl;
     //This generates the file for the old density
     std::string file_name = path+"lastdensitymatrix.txt" ;
     //Calculate old density
+    std::cout << "\n Generating density(x,y,z) [Cube file-like]" << std::endl ;
     calculateCube(orbitals,_lastdmat,file_name);
     //This loop generates the files for all the new states (the ones to be compared with the old density)
     for(int i=0;i<nostates;i++){
