@@ -41,6 +41,8 @@ void PolarRegion::Initialize(const tools::Property& prop) {
                                                       _deltaE);
   _exp_damp =
       polar_xml.ifExistsReturnElseReturnDefault(key + ".exp_damp", _exp_damp);
+  _polar_mixing= polar_xml.ifExistsReturnElseReturnDefault(key + ".polar_mixing", _polar_mixing);
+
 
   return;
 }
@@ -210,6 +212,8 @@ void PolarRegion::Evaluate(std::vector<std::unique_ptr<Region> >& regions) {
     _errormsg = "PCG iterations did not converge";
     return;
   }
+XTP_LOG_SAVE(logINFO, _log) << " polar mixing " << _polar_mixing << std::flush;
+ x=_polar_mixing*x;
 
   index = 0;
   for (PolarSegment& seg : _segments) {

@@ -56,33 +56,58 @@ class StateTracker {
   std::vector<int> LocTracker(const Orbitals& orbitals) const;
   std::vector<int> DeltaQTracker(const Orbitals& orbitals) const;
   std::vector<int> OverlapTracker(const Orbitals& orbitals) const;
+  std::vector<int> OverlapTrackerBSE(const Orbitals& orbitals) const;
+  std::vector<int> WassersteinTracker(const Orbitals& orbitals) const; 
+  std::vector<int> DensityTracker(const Orbitals& orbitals) const;
 
   Eigen::VectorXd CalculateOverlap(const Orbitals& orbitals) const;
+  Eigen::VectorXd CalculateOverlapBSE(const Orbitals& orbitals) const;
+Eigen::VectorXd EvaluateBasisAtPosition(const AOBasis& dftbasis, const Eigen::Vector3d& pos) const;
+Eigen::VectorXd CalculateWassersteinNorm(const Orbitals& orbitals) const;
 
   void UpdateLastCoeff(const Orbitals& orbitals);
+  void UpdateLastCoeff_matrix(const Orbitals& orbitals);
+  void UpdateLastDmat(const Orbitals& orbitals);
+  void UpdateLastBSE_R(const Orbitals& orbitals);
+  void UpdateLastBSE_AR(const Orbitals& orbitals);
+  void UpdateLastBSE_energy(const Orbitals& orbitals);
+  void calculateCube(const Orbitals& orbitals,Eigen::MatrixXd mat, std::string fileout) const;
+Eigen::VectorXd CalculateDNorm(const Orbitals& orbitals) const;
   Eigen::MatrixXd CalcOrthoCoeffs(const Orbitals& orbitals) const;
 
   std::vector<int> CollapseResults(
       std::vector<std::vector<int> >& results) const;
   std::vector<int> ComparePairofVectors(std::vector<int>& vec1,
                                         std::vector<int>& vec2) const;
-
   Logger* _log;
 
   std::vector<QMState> _statehist;
-
+bool _use_overlaptracker_bse = false;
+  bool _use_densitytracker =false;
+  bool _use_wasserstein = false;
   bool _use_osctracker = false;
   double _oscthreshold = 0.0;
-
+double _dmatthreshold = 0.0;
   bool _use_overlaptracker = false;
   Eigen::VectorXd _laststatecoeff;
   double _overlapthreshold = 0.0;
+Eigen::MatrixXd _laststatecoeff_mat; 
+  Eigen::VectorXd _lastbse_R;
+  Eigen::VectorXd _lastbse_AR;
+  double _lastbseenergy;
+  Eigen::MatrixXd _lastdmat;
 
   bool _use_localizationtracker = false;
   QMFragment<double> _fragment_loc;
 
   bool _use_dQtracker = false;
   QMFragment<double> _fragment_dQ;
+  double _dQ_threshold = 0.0;
+  
+  double _padding = 3.5;
+  int _xsteps = 40;
+  int _ysteps = 40;
+  int _zsteps = 40;
 };
 }  // namespace xtp
 }  // namespace votca
