@@ -133,7 +133,7 @@ void StateTracker::PrintInfo() const {
     XTP_LOG(logDEBUG, *_log) << "WARNING: I am using Wasserstein" << flush;
   }
   if (_use_dQtracker + _use_osctracker + _use_localizationtracker +
-          _use_osctracker + _use_overlaptracker_bse + _use_wasserstein + _use_densitytracker<
+          _use_overlaptracker + _use_overlaptracker_bse + _use_wasserstein + _use_densitytracker<
       1) {
     XTP_LOG(logDEBUG, *_log) << "WARNING: No tracker is used " << flush;
   }
@@ -223,7 +223,6 @@ QMState StateTracker::CalcStateAndUpdate(const Orbitals& orbitals) {
   }
   if (_use_wasserstein ) {
       UpdateLastDmat(orbitals);
-      UpdateLastBSE_energy(orbitals);
   }
   return result;
 }
@@ -597,9 +596,8 @@ std::vector<int> StateTracker::WassersteinTracker(const Orbitals& orbitals) cons
   
   Eigen::VectorXd ddnorm = CalculateWassersteinNorm(orbitals);
   Eigen::VectorXd ones = Eigen::VectorXd::Ones(ddnorm.size()); 
-  Eigen::VectorXd en_m = orbitals.BSESinglets().eigenvalues() - (_lastbseenergy * ones) ;
 
-  Eigen::VectorXd dnorm = ddnorm.array();// + penalty_num;
+  Eigen::VectorXd dnorm = ddnorm.array();
    
   int validelements = dnorm.size();
    

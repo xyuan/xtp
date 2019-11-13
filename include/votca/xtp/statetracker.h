@@ -62,8 +62,8 @@ class StateTracker {
 
   Eigen::VectorXd CalculateOverlap(const Orbitals& orbitals) const;
   Eigen::VectorXd CalculateOverlapBSE(const Orbitals& orbitals) const;
-Eigen::VectorXd EvaluateBasisAtPosition(const AOBasis& dftbasis, const Eigen::Vector3d& pos) const;
-Eigen::VectorXd CalculateWassersteinNorm(const Orbitals& orbitals) const;
+  Eigen::VectorXd EvaluateBasisAtPosition(const AOBasis& dftbasis, const Eigen::Vector3d& pos) const;
+  Eigen::VectorXd CalculateWassersteinNorm(const Orbitals& orbitals) const;
 
   void UpdateLastCoeff(const Orbitals& orbitals);
   void UpdateLastCoeff_matrix(const Orbitals& orbitals);
@@ -72,7 +72,8 @@ Eigen::VectorXd CalculateWassersteinNorm(const Orbitals& orbitals) const;
   void UpdateLastBSE_AR(const Orbitals& orbitals);
   void UpdateLastBSE_energy(const Orbitals& orbitals);
   void calculateCube(const Orbitals& orbitals,Eigen::MatrixXd mat, std::string fileout) const;
-Eigen::VectorXd CalculateDNorm(const Orbitals& orbitals) const;
+  
+  Eigen::VectorXd CalculateDNorm(const Orbitals& orbitals) const;
   Eigen::MatrixXd CalcOrthoCoeffs(const Orbitals& orbitals) const;
 
   std::vector<int> CollapseResults(
@@ -82,21 +83,20 @@ Eigen::VectorXd CalculateDNorm(const Orbitals& orbitals) const;
   Logger* _log;
 
   std::vector<QMState> _statehist;
-bool _use_overlaptracker_bse = false;
+  bool _use_overlaptracker_bse = false;
   bool _use_densitytracker =false;
   bool _use_wasserstein = false;
   bool _use_osctracker = false;
   double _oscthreshold = 0.0;
-double _dmatthreshold = 0.0;
+  double _dmatthreshold = 0.0;
   bool _use_overlaptracker = false;
   Eigen::VectorXd _laststatecoeff;
   double _overlapthreshold = 0.0;
-Eigen::MatrixXd _laststatecoeff_mat; 
+  Eigen::MatrixXd _laststatecoeff_mat; 
   Eigen::VectorXd _lastbse_R;
   Eigen::VectorXd _lastbse_AR;
   double _lastbseenergy;
   Eigen::MatrixXd _lastdmat;
-
   bool _use_localizationtracker = false;
   QMFragment<double> _fragment_loc;
 
