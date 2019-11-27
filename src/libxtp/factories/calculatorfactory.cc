@@ -21,6 +21,7 @@
 
 #include "calculators/eanalyze.h"
 #include "calculators/einternal.h"
+#include "calculators/ewaldbgpol.h"
 #include "calculators/ianalyze.h"
 #include "calculators/kmclifetime.h"
 #include "calculators/kmcmultiple.h"
@@ -41,6 +42,7 @@ void Calculatorfactory::RegisterAll(void) {
   Calculators().Register<KMCLifetime>("kmclifetime");
   Calculators().Register<KMCMultiple>("kmcmultiple");
   Calculators().Register<VAverage>("vaverage");
+  Calculators().Register<EwaldBgPol>("ewaldbgpol");
 }
 }  // namespace xtp
 }  // namespace votca
