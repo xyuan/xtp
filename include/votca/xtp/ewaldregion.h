@@ -18,8 +18,8 @@
  */
 
 #pragma once
-#ifndef VOTCA_XTP_QMREGION_H
-#define VOTCA_XTP_QMREGION_H
+#ifndef VOTCA_XTP_EWALDREGION_H
+#define VOTCA_XTP_EWALDREGION_H
 
 #include <votca/xtp/classicalsegment.h>
 #include <votca/xtp/region.h>
@@ -80,4 +80,4 @@ class EwaldRegion : public Region {
 }  // namespace xtp
 }  // namespace votca
 
-#endif  // VOTCA_XTP_REGION_H
+#endif  // VOTCA_XTP_EWALDREGION_H
