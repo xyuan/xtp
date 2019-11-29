@@ -46,38 +46,39 @@ class QMRegion : public Region {
       : Region(id, log), _workdir(workdir) {
     QMPackageFactory::RegisterAll();
   };
-  ~QMRegion() override = default;
+  ~QMRegion() final = default;
 
-  void Initialize(const tools::Property& prop) override;
+  void Initialize(const tools::Property& prop) final;
 
-  bool Converged() const override;
+  bool Converged() const final;
 
-  void Evaluate(std::vector<std::unique_ptr<Region> >& regions) override;
+  void Evaluate(std::vector<std::unique_ptr<Region> >& regions) final;
 
-  void WriteToCpt(CheckpointWriter& w) const override;
+  void WriteToCpt(CheckpointWriter& w) const final;
 
-  void ReadFromCpt(CheckpointReader& r) override;
+  void ReadFromCpt(CheckpointReader& r) final;
 
   void ApplyQMFieldToPolarSegments(std::vector<PolarSegment>& segments) const;
 
-  Index size() const override { return _size; }
+  Index size() const final { return _size; }
 
-  void WritePDB(csg::PDBWriter& writer) const override;
+  void WritePDB(csg::PDBWriter& writer) const final;
 
-  std::string identify() const override { return "qm"; }
+  std::string identify() const final { return "qm"; }
 
   void push_back(const QMMolecule& mol);
 
-  void Reset() override;
+  void Reset() final;
 
-  double charge() const override;
-  double Etotal() const override { return _E_hist.back(); }
+  double charge() const final;
+  double Etotal() const final { return _E_hist.back(); }
 
  protected:
-  void AppendResult(tools::Property& prop) const override;
-  double InteractwithQMRegion(const QMRegion& region) override;
-  double InteractwithPolarRegion(const PolarRegion& region) override;
-  double InteractwithStaticRegion(const StaticRegion& region) override;
+  void AppendResult(tools::Property& prop) const final;
+  double InteractwithQMRegion(const QMRegion& region) final;
+  double InteractwithPolarRegion(const PolarRegion& region) final;
+  double InteractwithStaticRegion(const StaticRegion& region) final;
+  double InteractwithEwaldRegion(const EwaldRegion&) final;
 
  private:
   void AddNucleiFields(std::vector<PolarSegment>& segments,

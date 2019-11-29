@@ -21,6 +21,7 @@
 #ifndef VOTCA_XTP_EEINTERACTOR_H
 #define VOTCA_XTP_EEINTERACTOR_H
 
+#include <votca/csg/openbox.h>
 #include <votca/xtp/classicalsegment.h>
 #include <votca/xtp/eigen.h>
 namespace votca {
@@ -34,16 +35,16 @@ enum Estatic : bool {
 /**
  * \brief Mediates interaction between polar and static sites
  */
+template <class PBC = csg::OpenBox>
 class eeInteractor {
  public:
-  explicit eeInteractor() = default;
-  explicit eeInteractor(double expdamping) : _expdamping(expdamping){};
+  explicit eeInteractor(const PBC& pbc) : _pbc(pbc);
+  explicit eeInteractor(double expdamping, const PBC& pbc)
+      : _expdamping(expdamping), _pbc(pbc);
+  explicit eeInteractor(double expdamping) : _expdamping(expdamping);
 
   Eigen::Matrix3d FillTholeInteraction(const PolarSite& site1,
                                        const PolarSite& site2) const;
-
-  Eigen::Vector3d VThole(const PolarSite& site1, const PolarSite& site2,
-                         const Eigen::Vector3d& dQ) const;
 
   Eigen::VectorXd Cholesky_IntraSegment(const PolarSegment& seg) const;
 
@@ -111,6 +112,13 @@ class eeInteractor {
     Eigen::Matrix<double, 6, 1> _data;
   };
 
+  const PBC _pbc;
+
+  Eigen::Vector3d getDist(const Eigen::Vector3d& r1,
+                          const Eigen::Vector3d& r2) const {
+    return _pbc.getShortestConnect(r1, r2);
+  }
+
   template <int N>
   Eigen::Matrix<double, N, 1> VSiteA(const StaticSite& site1,
                                      const StaticSite& site2) const;
@@ -128,7 +136,7 @@ class eeInteractor {
   E_terms CalcPolarEnergy_site(const PolarSite& site1,
                                const PolarSite& site2) const;
 
-  double _expdamping = 0.39;  // dimensionless
+  double _expdamping = 0.0;  // dimensionless
 };
 
 }  // namespace xtp

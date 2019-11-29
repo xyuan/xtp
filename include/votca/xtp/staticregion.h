@@ -33,23 +33,28 @@ class StaticRegion : public MMRegion<StaticSegment> {
  public:
   StaticRegion(Index id, Logger& log) : MMRegion<StaticSegment>(id, log) {}
 
-  std::string identify() const override { return "static"; }
+  std::string identify() const final { return "static"; }
 
-  void Initialize(const tools::Property&) override { return; }
+  void Initialize(const tools::Property&) final { return; }
 
-  bool Converged() const override { return true; }
+  bool Converged() const final { return true; }
 
-  double Etotal() const override { return 0.0; }
+  double Etotal() const final { return 0.0; }
 
-  void Evaluate(std::vector<std::unique_ptr<Region> >&) override { return; }
-  void Reset() override { return; };
+  void Evaluate(std::vector<std::unique_ptr<Region> >&) final { return; }
+  void Reset() final { return; };
 
  protected:
   void ResetRegion() { return; }
-  void AppendResult(tools::Property&) const override { return; }
-  double InteractwithQMRegion(const QMRegion&) override { return 0.0; }
-  double InteractwithPolarRegion(const PolarRegion&) override { return 0.0; }
-  double InteractwithStaticRegion(const StaticRegion&) override { return 0.0; }
+  void AppendResult(tools::Property&) const final { return; }
+  double InteractwithQMRegion(const QMRegion&) final { return 0.0; }
+  double InteractwithPolarRegion(const PolarRegion&) final { return 0.0; }
+  double InteractwithStaticRegion(const StaticRegion&) final { return 0.0; }
+  double InteractwithEwaldRegion(const EwaldRegion&) final {
+    throw std::runtime_error(
+        "An Ewald and a static region do not work together.");
+    return 0.0;
+  }
 
  private:
 };

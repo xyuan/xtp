@@ -43,27 +43,27 @@ class PolarRegion : public MMRegion<PolarSegment> {
  public:
   PolarRegion(Index id, Logger& log) : MMRegion<PolarSegment>(id, log) {}
 
-  std::string identify() const override { return "polar"; }
+  std::string identify() const final { return "polar"; }
 
-  void Initialize(const tools::Property& prop) override;
+  void Initialize(const tools::Property& prop) final;
 
-  bool Converged() const override;
+  bool Converged() const final;
 
-  void Evaluate(std::vector<std::unique_ptr<Region> >& regions) override;
+  void Evaluate(std::vector<std::unique_ptr<Region> >& regions) final;
 
-  void Reset() override;
+  void Reset() final;
 
-  double Etotal() const override { return _E_hist.back().Etotal(); }
+  double Etotal() const final { return _E_hist.back().Etotal(); }
 
-  void WriteToCpt(CheckpointWriter& w) const override;
+  void WriteToCpt(CheckpointWriter& w) const final;
 
-  void ReadFromCpt(CheckpointReader& r) override;
+  void ReadFromCpt(CheckpointReader& r) final;
 
  protected:
-  void AppendResult(tools::Property& prop) const override;
-  double InteractwithQMRegion(const QMRegion& region) override;
-  double InteractwithPolarRegion(const PolarRegion& region) override;
-  double InteractwithStaticRegion(const StaticRegion& region) override;
+  void AppendResult(tools::Property& prop) const final;
+  double InteractwithQMRegion(const QMRegion& region) final;
+  double InteractwithPolarRegion(const PolarRegion& region) final;
+  double InteractwithStaticRegion(const StaticRegion& region) final;
 
  private:
   void CalcInducedDipoles();

@@ -41,6 +41,11 @@ double EwaldRegion::InteractwithStaticRegion(const StaticRegion&) {
   return 0.0;
 }
 
+double EwaldRegion::InteractwithEwaldRegion(const EwaldRegion&) {
+  throw std::runtime_error("Two Ewald Regions cannot coexist.");
+  return 0.0;
+}
+
 void EwaldRegion::WritePDB(csg::PDBWriter&) const {}
 
 void EwaldRegion::WriteToCpt(CheckpointWriter& w) const {

@@ -26,11 +26,9 @@ template <int N>
 Eigen::Matrix<double, N, 1> eeInteractor::VSiteA(
     const StaticSite& siteA, const StaticSite& siteB) const {
 
-  const Eigen::Vector3d& posA = siteA.getPos();
-  const Eigen::Vector3d& posB = siteB.getPos();
   Index rankB = siteB.getRank();
-  Eigen::Vector3d a =
-      posB - posA;  // Vector of the distance between polar sites
+  Eigen::Vector3d a = getDist(siteA.getPos(), siteB.getPos());
+  // Vector of the distance between polar sites
   const double R = a.norm();
   const double fac1 = 1.0 / R;
   a *= fac1;  // unit vector pointing from A to B
@@ -152,13 +150,11 @@ Eigen::Matrix<double, N, 1> eeInteractor::VSiteA(
   return V;
 }
 
-Eigen::Matrix3d eeInteractor::FillTholeInteraction(
+Eigen::Matrix3d eeInteractor::FillDipoleDipoleInteraction(
     const PolarSite& site1, const PolarSite& site2) const {
 
-  const Eigen::Vector3d& posB = site2.getPos();
-  const Eigen::Vector3d& posA = site1.getPos();
-  Eigen::Vector3d a =
-      posB - posA;            // Vector of the distance between polar sites
+  Eigen::Vector3d a = getDist(siteA.getPos(), siteB.getPos());
+  // Vector of the distance between polar sites
   const double R = a.norm();  // Norm of distance vector
   const double fac1 = 1 / R;
   a *= fac1;  // unit vector pointing from A to B
@@ -175,33 +171,6 @@ Eigen::Matrix3d eeInteractor::FillTholeInteraction(
   }
   Eigen::Matrix3d result = -3 * lambda5 * a * a.transpose();
   result.diagonal().array() += lambda3;
-  return result;  // T_1alpha,1beta (alpha,beta=x,y,z)
-}
-
-Eigen::Vector3d eeInteractor::VThole(const PolarSite& site1,
-                                     const PolarSite& site2,
-                                     const Eigen::Vector3d& dQ) const {
-
-  const Eigen::Vector3d& posB = site2.getPos();
-  const Eigen::Vector3d& posA = site1.getPos();
-  Eigen::Vector3d a =
-      posB - posA;            // Vector of the distance between polar sites
-  const double R = a.norm();  // Norm of distance vector
-  const double fac1 = 1 / R;
-  a *= fac1;  // unit vector pointing from A to B
-
-  double lambda3 = std::pow(fac1, 3);
-  double lambda5 = lambda3;
-  const double au3 = _expdamping * std::pow(R, 3) *
-                     site1.getSqrtInvEigenDamp() *
-                     site2.getSqrtInvEigenDamp();  // au3 is dimensionless
-  if (au3 < 40) {
-    const double exp_ua = std::exp(-au3);
-    lambda3 *= (1 - exp_ua);
-    lambda5 *= (1 - (1 + au3) * exp_ua);
-  }
-  Eigen::Vector3d result = -3 * lambda5 * a * (a.transpose() * dQ);
-  result += lambda3 * dQ;
   return result;  // T_1alpha,1beta (alpha,beta=x,y,z)
 }
 
@@ -376,7 +345,7 @@ double eeInteractor::CalcPolarEnergy_IntraSegment(
   for (Index i = 0; i < seg.size(); i++) {
     for (Index j = 0; j < i; j++) {
       e += seg[i].Induced_Dipole().transpose() *
-           VThole(seg[i], seg[j], seg[j].Induced_Dipole());
+           FillTholeInteraction(seg[i], seg[j])* seg[j].Induced_Dipole());
     }
   }
   return e;

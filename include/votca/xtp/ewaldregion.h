@@ -41,36 +41,37 @@ class EwaldRegion : public Region {
   EwaldRegion(Index id, Logger& log,
               const std::unique_ptr<csg::BoundaryCondition>& bc)
       : Region(id, log), _bc(*(bc.get())){};
-  ~EwaldRegion() override = default;
+  ~EwaldRegion() final = default;
 
-  void Initialize(const tools::Property& prop) override;
+  void Initialize(const tools::Property& prop) final;
 
-  bool Converged() const override { return true; };
+  bool Converged() const final { return true; };
 
-  void Evaluate(std::vector<std::unique_ptr<Region> >& regions) override;
+  void Evaluate(std::vector<std::unique_ptr<Region> >& regions) final;
 
-  void WriteToCpt(CheckpointWriter& w) const override;
+  void WriteToCpt(CheckpointWriter& w) const final;
 
-  void ReadFromCpt(CheckpointReader& r) override;
+  void ReadFromCpt(CheckpointReader& r) final;
 
-  Index size() const override { return _size; }
+  Index size() const final { return _size; }
 
-  void WritePDB(csg::PDBWriter& writer) const override;
+  void WritePDB(csg::PDBWriter& writer) const final;
 
-  std::string identify() const override { return "ewald"; }
+  std::string identify() const final { return "ewald"; }
 
   void push_back(const StaticSegment& mol);
 
-  void Reset() override;
+  void Reset() final;
 
-  double charge() const override;
-  double Etotal() const override { return 0.0; }
+  double charge() const final;
+  double Etotal() const final { return 0.0; }
 
  protected:
-  void AppendResult(tools::Property& prop) const override;
-  double InteractwithQMRegion(const QMRegion& region) override;
-  double InteractwithPolarRegion(const PolarRegion& region) override;
-  double InteractwithStaticRegion(const StaticRegion& region) override;
+  void AppendResult(tools::Property& prop) const final;
+  double InteractwithQMRegion(const QMRegion& region) final;
+  double InteractwithPolarRegion(const PolarRegion& region) final;
+  double InteractwithStaticRegion(const StaticRegion& region) final;
+  double InteractwithEwaldRegion(const EwaldRegion& region) final;
 
  private:
   Index _size = 0;

@@ -217,6 +217,8 @@ double QMRegion::InteractwithStaticRegion(const StaticRegion& region) {
   return 0.0;
 }
 
+double InteractwithEwaldRegion(const EwaldRegion& region) final {}
+
 void QMRegion::WritePDB(csg::PDBWriter& writer) const {
   writer.WriteContainer(_orb.QMAtoms());
 }
