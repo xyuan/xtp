@@ -33,6 +33,7 @@ void FilterFactory::RegisterAll(void) {
   Filter().Register<Localisation_filter>("localisation");
   Filter().Register<OscillatorStrength_filter>("oscillatorstrength");
   Filter().Register<Overlap_filter>("overlap");
+  Filter().Register<Overlap_filter>("hungarian");
 }
 }  // namespace xtp
 }  // namespace votca
