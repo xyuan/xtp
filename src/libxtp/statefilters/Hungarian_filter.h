@@ -27,7 +27,7 @@ namespace votca {
 namespace xtp {
 
 /**
-    \brief overlap_filter
+    \brief hungarian_filter
     tracks states according to their overlap with a previous state
  */
 
@@ -57,8 +57,9 @@ class Hungarian_filter : public StateFilter_base {
   Eigen::MatrixXd CalcExcitonAORepresentation(const Orbitals& orb,
                                               QMStateType type) const;
   double _threshold = 0.0;
-
+    
   Eigen::MatrixXd _laststatecoeffs;
+  std::string _laststate;
 };
 
 }  // namespace xtp

@@ -19,6 +19,8 @@
 
 #include "Hungarian_filter.h"
 #include <votca/xtp/aomatrix.h>
+#include <fstream>
+#include <iostream>
 namespace votca {
 namespace xtp {
 
@@ -41,13 +43,14 @@ Eigen::VectorXd Hungarian_filter::CalculateOverlap(const Orbitals& orb,
   AOOverlap S_ao;
   S_ao.Fill(orb.SetupDftBasis());
   Eigen::MatrixXd coeffs = CalcAOCoeffs(orb, type);
-
   Index basis = orb.getBasisSetSize();
-  Eigen::MatrixXd overlap = Eigen::MatrixXd::Zero(coeffs.rows(), coeffs.cols());
+  Index nn = orb.BSESinglets().eigenvalues().size();
+  Eigen::MatrixXd overlap = Eigen::MatrixXd::Zero(nn,nn);
+  Eigen::VectorXd optimalassignment = Eigen::VectorXd::Zero(nn);
 #pragma omp parallel for schedule(dynamic)
   for (Index i = 0; i < coeffs.cols(); i++) {
     for (Index j = 0; j < _laststatecoeffs.cols(); j++) {
-      Eigen::VectorXd laststatecoeff = _laststatecoeffs.col(j);
+      Eigen::VectorXd _laststatecoeff = _laststatecoeffs.col(j);
       {
         Eigen::VectorXd state = coeffs.col(i).head(basis * basis);
         Eigen::Map<const Eigen::MatrixXd> mat(state.data(), basis, basis);
@@ -72,7 +75,26 @@ Eigen::VectorXd Hungarian_filter::CalculateOverlap(const Orbitals& orb,
       }
     }
   }
-  return overlap.cwiseAbs();
+  std::string file_in = "overlapmatrix.txt";
+  std::cout << "Running Optimal Assignment Python script" << std::endl;
+  std::ofstream overlapmatrix(file_in);
+  overlapmatrix << overlap.cwiseAbs2();
+  overlapmatrix.close();
+  std::string file_out = "assignment_out.txt";
+   
+  std::string command =
+      "python optimalassigment.py " + file_out + " " + _laststate; //std::to_string(ss);
+  std::system(command.c_str());
+  std::ifstream ifs(file_out);
+  
+  std::vector<double> values;
+  double val;
+  int i = 0;
+  while (ifs >> val) {
+    optimalassignment(i) = val;
+    i += 1;
+  }
+  return optimalassignment;
 }
 
 Eigen::MatrixXd Hungarian_filter::CalcExcitonAORepresentation(
@@ -153,6 +175,7 @@ void Hungarian_filter::UpdateHist(const Orbitals& orb, QMState state) {
     offset = orb.getGWAmin();
   }
   _laststatecoeffs = aocoeffs;
+  _laststate = state.ToString();
   //_laststatecoeffs = aocoeffs.col(state.StateIdx() - offset);
 }
 
@@ -162,7 +185,7 @@ std::vector<Index> Hungarian_filter::CalcIndeces(const Orbitals& orb,
   if (type.isGWState()) {
     offset = orb.getGWAmin();
   }
-  Eigen::VectorXd Overlap = CalculateOverlap(orb, type);
+  Eigen::MatrixXd Overlap = CalculateOverlap(orb, type);
   return ReduceAndSortIndecesUp(Overlap, offset, _threshold);
 }
 

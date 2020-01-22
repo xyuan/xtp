@@ -22,6 +22,7 @@
 #include "../statefilters/Localisation_filter.h"
 #include "../statefilters/OscillatorStrength_filter.h"
 #include "../statefilters/Overlap_filter.h"
+#include "../statefilters/Hungarian_filter.h"
 #include <votca/xtp/filterfactory.h>
 
 namespace votca {
@@ -33,7 +34,7 @@ void FilterFactory::RegisterAll(void) {
   Filter().Register<Localisation_filter>("localisation");
   Filter().Register<OscillatorStrength_filter>("oscillatorstrength");
   Filter().Register<Overlap_filter>("overlap");
-  Filter().Register<Overlap_filter>("hungarian");
+  Filter().Register<Hungarian_filter>("hungarian");
 }
 }  // namespace xtp
 }  // namespace votca
