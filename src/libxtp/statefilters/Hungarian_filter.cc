@@ -18,9 +18,9 @@
  */
 
 #include "Hungarian_filter.h"
-#include <votca/xtp/aomatrix.h>
 #include <fstream>
 #include <iostream>
+#include <votca/xtp/aomatrix.h>
 namespace votca {
 namespace xtp {
 
@@ -45,7 +45,7 @@ Eigen::VectorXd Hungarian_filter::CalculateOverlap(const Orbitals& orb,
   Eigen::MatrixXd coeffs = CalcAOCoeffs(orb, type);
   Index basis = orb.getBasisSetSize();
   Index nn = orb.BSESinglets().eigenvalues().size();
-  Eigen::MatrixXd overlap = Eigen::MatrixXd::Zero(nn,nn);
+  Eigen::MatrixXd overlap = Eigen::MatrixXd::Zero(nn, nn);
   Eigen::VectorXd optimalassignment = Eigen::VectorXd::Zero(nn);
 #pragma omp parallel for schedule(dynamic)
   for (Index i = 0; i < coeffs.cols(); i++) {
@@ -58,9 +58,9 @@ Eigen::VectorXd Hungarian_filter::CalculateOverlap(const Orbitals& orb,
         Eigen::Map<const Eigen::MatrixXd> lastmat(laststate.data(), basis,
                                                   basis);
 
-        overlap(j,i) = (mat * S_ao.Matrix() * lastmat.transpose())
-                         .cwiseProduct(S_ao.Matrix())
-                         .sum();
+        overlap(j, i) = (mat * S_ao.Matrix() * lastmat.transpose())
+                            .cwiseProduct(S_ao.Matrix())
+                            .sum();
       }
       if (!orb.getTDAApprox()) {
         Eigen::VectorXd state = coeffs.col(i).tail(basis * basis);
@@ -69,7 +69,7 @@ Eigen::VectorXd Hungarian_filter::CalculateOverlap(const Orbitals& orb,
         Eigen::Map<const Eigen::MatrixXd> lastmat(laststate.data(), basis,
                                                   basis);
 
-        overlap(j,i) -= (mat * S_ao.Matrix() * lastmat.transpose())
+        overlap(j, i) -= (mat * S_ao.Matrix() * lastmat.transpose())
                              .cwiseProduct(S_ao.Matrix())
                              .sum();
       }
@@ -81,12 +81,12 @@ Eigen::VectorXd Hungarian_filter::CalculateOverlap(const Orbitals& orb,
   overlapmatrix << overlap.cwiseAbs2();
   overlapmatrix.close();
   std::string file_out = "assignment_out.txt";
-   
-  std::string command =
-      "python optimalassigment.py " + file_out + " " + _laststate; //std::to_string(ss);
+
+  std::string command = "python optimalassigment.py " + file_out + " " +
+                        _laststate;  // std::to_string(ss);
   std::system(command.c_str());
   std::ifstream ifs(file_out);
-  
+
   std::vector<double> values;
   double val;
   int i = 0;
