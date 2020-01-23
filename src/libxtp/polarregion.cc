@@ -213,7 +213,7 @@ void PolarRegion::Evaluate(std::vector<std::unique_ptr<Region> >& regions) {
     return;
   }
 
-  XTP_LOG_SAVE(logINFO, _log)
+  XTP_LOG(Log::info, _log)
       << " polar mixing " << _polar_mixing << std::flush;
   x = _polar_mixing * x;
 
