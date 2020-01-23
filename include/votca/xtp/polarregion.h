@@ -78,6 +78,7 @@ class PolarRegion : public MMRegion<PolarSegment> {
   double _deltaD = 1e-5;
   Index _max_iter = 100;
   double _exp_damp = 0.39;
+  double _polar_mixing = 1.0;
 };
 
 }  // namespace xtp
