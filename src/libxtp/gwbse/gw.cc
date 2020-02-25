@@ -236,15 +236,16 @@ Eigen::VectorXd GW::SolveQP(const Eigen::VectorXd& frequencies) const {
     if (_opt.qp_solver == "regression") {
       newf = SolveQP_Regression(intercept, initial_f, gw_level);
     }
-    if (_opt.qp_solver == "grid_interval") {
+    if (_opt.qp_solver == "grid") {
       std::cout << "I am in grid " << std::endl;
-      newf = SolveQP_Grid_reduced_interval(intercept, initial_f, gw_level);
+      newf = SolveQP_Grid(intercept, initial_f, gw_level);
     }
     if (newf) {
       frequencies_new[gw_level] = newf.value();
       converged[gw_level] = true;
     } else {
-      newf = SolveQP_Grid(intercept, initial_f, gw_level);
+      std::cout << "I am in grid with reduced interval" << std::endl;
+      newf = SolveQP_Grid_reduced_interval(intercept, initial_f, gw_level);
       if (newf) {
         frequencies_new[gw_level] = newf.value();
         converged[gw_level] = true;
@@ -396,36 +397,69 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
   double qp_energy = 0.0;
   double gradient_max = std::numeric_limits<double>::max();
   bool pole_found = false;
+  bool mae_test_pass = false;
+  Eigen::VectorXd alphas;
+  Index num_max = _opt.qp_training_points;
+  Eigen::VectorXd frequencies;
+  while (num_max < 100) {
+    double mae = 0;
+    double num = num_max * 1.0;
+    Eigen::VectorXd freq_training(num_max);
+    Eigen::VectorXd freq_test(num_max);
+    Eigen::VectorXd sigma_training(num_max);
+    double delta = (2.0 * range) / (num - 1.0);
+    Eigen::MatrixXd kernel(freq_training.size(), sigma_training.size());
 
-  // Sample the frequency interval (for now picking 20 points). It should be
-  // randomize...)
-  double num = _opt.qp_training_points * 1.0;
-  Eigen::VectorXd freq_training(_opt.qp_training_points);
-  Eigen::VectorXd sigma_training(_opt.qp_training_points);
-  double delta = (2.0 * range) / (num - 1.0);
-  Eigen::MatrixXd kernel(freq_training.size(), sigma_training.size());
-  for (Index j = 0; j < num; ++j) {
-    freq_training(j) = freq_prev + delta * j;
-    sigma_training(j) =
-        fqp.value(freq_training(j)) + freq_training(j) - intercept0;
-    for (Index i = 0; i < num; ++i) {
-      kernel.row(i) =
-          Laplacian_Kernel(freq_training(i), freq_training, _opt.qp_spread);
+    // Here it starts the Kernel Regression: j runs over columns, i runs over
+    // rows of the Kernel Matrix to be inverted in order to find alphas
+    for (Index j = 0; j < num; ++j) {
+      freq_training(j) = freq_prev + delta * j;
+      freq_test(j) = freq_training(j)+0.5*delta;
+      sigma_training(j) =
+          fqp.value(freq_training(j)) + freq_training(j) - intercept0;
+      for (Index i = 0; i < num; ++i) {
+        kernel.row(i) =
+            Laplacian_Kernel(freq_training(i), freq_training, _opt.qp_spread);
+      }
+    }
+    kernel.diagonal().array() += 1e-8;
+    alphas = kernel.colPivHouseholderQr().solve(sigma_training);
+
+    // Now that we have the alphas we can test if our prefiction is fine taking
+    // some testing point and evaluating the MAE
+    //Index num_test = 20 * num / 100;
+    
+    Index num_test = freq_test.size();
+    for (Index t = 0; t < freq_test.size()-1; t++) {
+      //std::srand(std::time(nullptr));
+      //double rand_t = (2.0 * range) * ((double)std::rand() / (double)RAND_MAX) +
+        //              freq_training(0);
+      mae += std::abs(
+          Laplacian_Kernel(freq_test(t), freq_training, _opt.qp_spread).dot(alphas) +
+          intercept0 - freq_test(t) - fqp.value(freq_test(t)));
+    }
+    mae /= (double)num_test;
+    if (mae < 1e-2) {
+      frequencies = freq_training;
+      mae_test_pass = true;
+      break;
+    } else {
+      std::cout << gw_level << " \n MAE: \t " << mae << " \t I have to increase number of training points" << std::endl;
+      num_max += 10;
     }
   }
-  kernel.diagonal().array() += 1e-8;
-  Eigen::VectorXd alphas = kernel.colPivHouseholderQr().solve(sigma_training);
-
+  if (mae_test_pass == false) {
+    std::cout << frequencies.size() << std::endl;
+  }
   // Stupid Fixed point solver
   double p0 = frequency0;
   Index fps = 1;
   while (fps <= 1000) {
-    double p = Laplacian_Kernel(p0, freq_training, _opt.qp_spread).dot(alphas) +
+    double p = Laplacian_Kernel(p0, frequencies, _opt.qp_spread).dot(alphas) +
                intercept0;
     if (std::abs(p - p0) < 1e-5) {
       qp_energy = p;
       pole_found = true;
-      std::cout << " \n Pole found :)" << std::endl;
       break;
     }
     fps++;
@@ -434,7 +468,7 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
   if (pole_found) {
     newf = qp_energy;
   } else {
-    std::cout << " \n Pole not found :(" << std::endl;
+    std::cout << "Pole not found :(" << std::endl;
   }
   return newf;
 }
