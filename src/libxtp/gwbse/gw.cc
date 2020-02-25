@@ -233,6 +233,13 @@ Eigen::VectorXd GW::SolveQP(const Eigen::VectorXd& frequencies) const {
     if (_opt.qp_solver == "scf") {
       newf = SolveQP_SelfConsistent(intercept, initial_f, gw_level);
     }
+    if (_opt.qp_solver == "regression") {
+      newf = SolveQP_Regression(intercept, initial_f, gw_level);
+    }
+    if (_opt.qp_solver == "grid_interval") {
+      std::cout << "I am in grid " << std::endl;
+      newf = SolveQP_Grid_reduced_interval(intercept, initial_f, gw_level);
+    }
     if (newf) {
       frequencies_new[gw_level] = newf.value();
       converged[gw_level] = true;
@@ -286,8 +293,8 @@ boost::optional<double> GW::SolveQP_Grid(double intercept0, double frequency0,
   const double range =
       _opt.qp_grid_spacing * double(_opt.qp_grid_steps - 1) / 2.0;
   boost::optional<double> newf = boost::none;
-  double freq_prev = frequency0 - range;
   QPFunc fqp(gw_level, *_sigma.get(), intercept0);
+  double freq_prev = frequency0 - range;
   double targ_prev = fqp.value(freq_prev);
   double qp_energy = 0.0;
   double gradient_max = std::numeric_limits<double>::max();
@@ -314,9 +321,127 @@ boost::optional<double> GW::SolveQP_Grid(double intercept0, double frequency0,
   return newf;
 }
 
-boost::optional<double> GW::SolveQP_SelfConsistent(double intercept0,
+boost::optional<double> GW::SolveQP_Grid_reduced_interval(
+    double intercept0, double frequency0, Index gw_level) const {
+
+  boost::optional<double> newf = boost::none;
+  QPFunc fqp(gw_level, *_sigma.get(), intercept0);
+  // To reduce the frequency window where to find the fixed point we compute
+  // the interesection between the linearization of fqp =
+  // sigma_c+intercept0-frequency0 around the frequency0 and the line fqp = 0.
+  // In other words this is the solution of the linearization problem. We use
+  // this as starting point. We shift +- 0.5 Hartree from that
+  double initial_targ_prev = fqp.value(frequency0);
+  double initial_targ_prev_div = fqp.deriv(frequency0);
+  double initial_f = frequency0;
+  frequency0 = initial_f + (initial_targ_prev) / (1.0 - initial_targ_prev_div);
+
+  const double range = 0.5;
+  double freq_prev = frequency0 - range;
+  double targ_prev = fqp.value(freq_prev);
+  double qp_energy = 0.0;
+  double gradient_max = std::numeric_limits<double>::max();
+  bool pole_found = false;
+  std::ofstream datafile;
+  std::string filename = "data_" + std::to_string(gw_level) + ".dat";
+  datafile.open(filename);
+  for (Index i_node = 1; i_node < _opt.qp_grid_steps; ++i_node) {
+
+    double freq =
+        freq_prev + 2.0 * range / _opt.qp_grid_steps;  // _opt.qp_grid_spacing;
+    double targ = fqp.value(freq);
+    datafile << freq << "\t" << targ + freq - intercept0 << "\t" << intercept0
+             << "\t" << frequency0 << "\t" << initial_f << "\n";
+
+    if (targ_prev * targ < 0.0) {  // Sign change
+      double f = SolveQP_Bisection(freq_prev, targ_prev, freq, targ, fqp);
+      double gradient = std::abs(fqp.deriv(f));
+      if (gradient < gradient_max) {
+        qp_energy = f;
+        gradient_max = gradient;
+        pole_found = true;
+      }
+    }
+    freq_prev = freq;
+    targ_prev = targ;
+  }
+
+  if (pole_found) {
+    newf = qp_energy;
+  }
+  return newf;
+}
+
+boost::optional<double> GW::SolveQP_Regression(double intercept0,
                                                double frequency0,
                                                Index gw_level) const {
+
+  boost::optional<double> newf = boost::none;
+  QPFunc fqp(gw_level, *_sigma.get(), intercept0);
+
+  // To reduce the frequency window where to find the fixed point we compute
+  // the interesection between the linearization of fqp =
+  // sigma_c+intercept0-frequency0 around the frequency0 and the line fqp = 0.
+  // In other words this is the solution of the linearization problem. We use
+  // this as starting point. We shift +- 0.5 Hartree from that
+
+  double initial_targ_prev = fqp.value(frequency0);
+  double initial_targ_prev_div = fqp.deriv(frequency0);
+  const double range = 0.5;
+  double initial_f = frequency0;
+  frequency0 = initial_f + (initial_targ_prev) / (1.0 - initial_targ_prev_div);
+
+  double freq_prev = frequency0 - range;
+  double targ_prev = fqp.value(freq_prev);
+  double qp_energy = 0.0;
+  double gradient_max = std::numeric_limits<double>::max();
+  bool pole_found = false;
+
+  // Sample the frequency interval (for now picking 20 points). It should be
+  // randomize...)
+  double num = _opt.qp_training_points * 1.0;
+  Eigen::VectorXd freq_training(_opt.qp_training_points);
+  Eigen::VectorXd sigma_training(_opt.qp_training_points);
+  double delta = (2.0 * range) / (num - 1.0);
+  Eigen::MatrixXd kernel(freq_training.size(), sigma_training.size());
+  for (Index j = 0; j < num; ++j) {
+    freq_training(j) = freq_prev + delta * j;
+    sigma_training(j) =
+        fqp.value(freq_training(j)) + freq_training(j) - intercept0;
+    for (Index i = 0; i < num; ++i) {
+      kernel.row(i) =
+          Laplacian_Kernel(freq_training(i), freq_training, _opt.qp_spread);
+    }
+  }
+  kernel.diagonal().array() += 1e-8;
+  Eigen::VectorXd alphas = kernel.colPivHouseholderQr().solve(sigma_training);
+
+  // Stupid Fixed point solver
+  double p0 = frequency0;
+  Index fps = 1;
+  while (fps <= 1000) {
+    double p = Laplacian_Kernel(p0, freq_training, _opt.qp_spread).dot(alphas) +
+               intercept0;
+    if (std::abs(p - p0) < 1e-5) {
+      qp_energy = p;
+      pole_found = true;
+      std::cout << " \n Pole found :)" << std::endl;
+      break;
+    }
+    fps++;
+    p0 = p;
+  }
+  if (pole_found) {
+    newf = qp_energy;
+  } else {
+    std::cout << " \n Pole not found :(" << std::endl;
+  }
+  return newf;
+}
+
+boost::optional<double> GW::SolveQP_SelfConsistent(double intercept0,
+                                                   double frequency0,
+                                                   Index gw_level) const {
   boost::optional<double> newf = boost::none;
   QPFunc f(gw_level, *_sigma.get(), intercept0);
   Selfconsistentsolver<QPFunc> scf = Selfconsistentsolver<QPFunc>(
@@ -372,6 +497,15 @@ double GW::SolveQP_Bisection(double lowerbound, double f_lowerbound,
     }
   }
   return zero;
+}
+
+Eigen::VectorXd GW::Laplacian_Kernel(double x1, Eigen::VectorXd x2,
+                                     double sigma) const {
+  Eigen::VectorXd kernel(x2.size());
+  for (Index j = 0; j < x2.size(); ++j) {
+    kernel(j) = std::exp(std::abs(x1 - x2(j)) / sigma);
+  }
+  return kernel;
 }
 
 bool GW::Converged(const Eigen::VectorXd& e1, const Eigen::VectorXd& e2,

@@ -415,12 +415,22 @@ void GWBSE::Initialize(tools::Property& options) {
       key + ".qp_grid_steps", _gwopt.qp_grid_steps);
   _gwopt.qp_grid_spacing = options.ifExistsReturnElseReturnDefault<double>(
       key + ".qp_grid_spacing", _gwopt.qp_grid_spacing);
+      _gwopt.qp_training_points = options.ifExistsReturnElseReturnDefault<Index>(
+      key + ".qp_training_points", _gwopt.qp_training_points);
+      _gwopt.qp_spread = options.ifExistsReturnElseReturnDefault<double>(
+      key + ".qp_spread", _gwopt.qp_spread);
   XTP_LOG(Log::error, *_pLog) << " QP solver: " << _gwopt.qp_solver << flush;
   if (_gwopt.qp_solver == "grid") {
     XTP_LOG(Log::error, *_pLog)
         << " QP grid steps: " << _gwopt.qp_grid_steps << flush;
     XTP_LOG(Log::error, *_pLog)
         << " QP grid spacing: " << _gwopt.qp_grid_spacing << flush;
+  }
+  if (_gwopt.qp_solver == "regression") {
+    XTP_LOG(Log::error, *_pLog)
+        << " QP training points: " << _gwopt.qp_training_points << flush;
+    XTP_LOG(Log::error, *_pLog)
+        << " QP Spread: " << _gwopt.qp_spread << flush;
   }
 
   _sigma_plot_states = options.ifExistsReturnElseReturnDefault<std::string>(
