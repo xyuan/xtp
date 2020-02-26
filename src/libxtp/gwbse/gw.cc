@@ -297,15 +297,18 @@ boost::optional<double> GW::SolveQP_Grid(double intercept0, double frequency0,
   QPFunc fqp(gw_level, *_sigma.get(), intercept0);
   double freq_prev = frequency0 - range;
   double targ_prev = fqp.value(freq_prev);
+  Index numbersofcalls = 1;  // This is for pre-shooting
   double qp_energy = 0.0;
   double gradient_max = std::numeric_limits<double>::max();
   bool pole_found = false;
   for (Index i_node = 1; i_node < _opt.qp_grid_steps; ++i_node) {
     double freq = freq_prev + _opt.qp_grid_spacing;
     double targ = fqp.value(freq);
+    numbersofcalls += 1;
     if (targ_prev * targ < 0.0) {  // Sign change
       double f = SolveQP_Bisection(freq_prev, targ_prev, freq, targ, fqp);
       double gradient = std::abs(fqp.deriv(f));
+      numbersofcalls += 1;
       if (gradient < gradient_max) {
         qp_energy = f;
         gradient_max = gradient;
@@ -319,6 +322,9 @@ boost::optional<double> GW::SolveQP_Grid(double intercept0, double frequency0,
   if (pole_found) {
     newf = qp_energy;
   }
+  std::cout << "\n"
+            << gw_level << "\t Number of calls:\t" << numbersofcalls
+            << std::endl;
   return newf;
 }
 
@@ -334,6 +340,7 @@ boost::optional<double> GW::SolveQP_Grid_reduced_interval(
   // this as starting point. We shift +- 0.5 Hartree from that
   double initial_targ_prev = fqp.value(frequency0);
   double initial_targ_prev_div = fqp.deriv(frequency0);
+  Index numbersofcalls = 2;  // This is for pre-shooting
   double initial_f = frequency0;
   frequency0 = initial_f + (initial_targ_prev) / (1.0 - initial_targ_prev_div);
 
@@ -343,20 +350,23 @@ boost::optional<double> GW::SolveQP_Grid_reduced_interval(
   double qp_energy = 0.0;
   double gradient_max = std::numeric_limits<double>::max();
   bool pole_found = false;
-  std::ofstream datafile;
-  std::string filename = "data_" + std::to_string(gw_level) + ".dat";
-  datafile.open(filename);
+  // std::ofstream datafile;
+  // std::string filename = "data_" + std::to_string(gw_level) + ".dat";
+  // datafile.open(filename);
   for (Index i_node = 1; i_node < _opt.qp_grid_steps; ++i_node) {
 
     double freq =
         freq_prev + 2.0 * range / _opt.qp_grid_steps;  // _opt.qp_grid_spacing;
     double targ = fqp.value(freq);
-    datafile << freq << "\t" << targ + freq - intercept0 << "\t" << intercept0
-             << "\t" << frequency0 << "\t" << initial_f << "\n";
+    numbersofcalls += 1;
+    // datafile << freq << "\t" << targ + freq - intercept0 << "\t" <<
+    // intercept0
+    //       << "\t" << frequency0 << "\t" << initial_f << "\n";
 
     if (targ_prev * targ < 0.0) {  // Sign change
       double f = SolveQP_Bisection(freq_prev, targ_prev, freq, targ, fqp);
       double gradient = std::abs(fqp.deriv(f));
+      numbersofcalls += 1;
       if (gradient < gradient_max) {
         qp_energy = f;
         gradient_max = gradient;
@@ -370,6 +380,9 @@ boost::optional<double> GW::SolveQP_Grid_reduced_interval(
   if (pole_found) {
     newf = qp_energy;
   }
+  std::cout << "\n"
+            << gw_level << "\t Number of calls:\t" << numbersofcalls
+            << std::endl;
   return newf;
 }
 
@@ -398,6 +411,7 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
   double gradient_max = std::numeric_limits<double>::max();
   bool pole_found = false;
   bool mae_test_pass = false;
+  double mae_final = 0;
   Eigen::VectorXd alphas;
   Index num_max = _opt.qp_training_points;
   Eigen::VectorXd frequencies;
@@ -407,6 +421,7 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
     Eigen::VectorXd freq_training(num_max);
     Eigen::VectorXd freq_test(num_max);
     Eigen::VectorXd sigma_training(num_max);
+    Eigen::VectorXd sigma_test(num_max);
     double delta = (2.0 * range) / (num - 1.0);
     Eigen::MatrixXd kernel(freq_training.size(), sigma_training.size());
 
@@ -414,62 +429,62 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
     // rows of the Kernel Matrix to be inverted in order to find alphas
     for (Index j = 0; j < num; ++j) {
       freq_training(j) = freq_prev + delta * j;
-      freq_test(j) = freq_training(j)+0.5*delta;
+      freq_test(j) = freq_training(j) + 0.5 * delta;
       sigma_training(j) =
           fqp.value(freq_training(j)) + freq_training(j) - intercept0;
-      for (Index i = 0; i < num; ++i) {
-        kernel.row(i) =
-            Laplacian_Kernel(freq_training(i), freq_training, _opt.qp_spread);
-      }
+      sigma_test(j) = fqp.value(freq_test(j)) + freq_test(j) - intercept0;
+    }
+
+    for (Index i = 0; i < num; ++i) {
+      kernel.row(i) =
+          Laplacian_Kernel(freq_training(i), freq_training, _opt.qp_spread);
     }
     kernel.diagonal().array() += 1e-8;
     alphas = kernel.colPivHouseholderQr().solve(sigma_training);
 
-    // Now that we have the alphas we can test if our prefiction is fine taking
-    // some testing point and evaluating the MAE
-    //Index num_test = 20 * num / 100;
-    
     Index num_test = freq_test.size();
-    for (Index t = 0; t < freq_test.size()-1; t++) {
-      //std::srand(std::time(nullptr));
-      //double rand_t = (2.0 * range) * ((double)std::rand() / (double)RAND_MAX) +
-        //              freq_training(0);
-      mae += std::abs(
-          Laplacian_Kernel(freq_test(t), freq_training, _opt.qp_spread).dot(alphas) +
-          intercept0 - freq_test(t) - fqp.value(freq_test(t)));
+    for (Index t = 0; t < freq_test.size() - 1; t++) {
+      mae +=
+          std::abs(Laplacian_Kernel(freq_test(t), freq_training, _opt.qp_spread)
+                       .dot(alphas) - sigma_test(t));
     }
+
     mae /= (double)num_test;
+    mae_final = mae;
     if (mae < 1e-2) {
       frequencies = freq_training;
       mae_test_pass = true;
       break;
     } else {
-      std::cout << gw_level << " \n MAE: \t " << mae << " \t I have to increase number of training points" << std::endl;
       num_max += 10;
+      std::cout << "MAE \t" << mae_final << "\t Increase number of pts to \t" << num_max << std::endl;
     }
   }
   if (mae_test_pass == false) {
-    std::cout << frequencies.size() << std::endl;
-  }
-  // Stupid Fixed point solver
-  double p0 = frequency0;
-  Index fps = 1;
-  while (fps <= 1000) {
-    double p = Laplacian_Kernel(p0, frequencies, _opt.qp_spread).dot(alphas) +
-               intercept0;
-    if (std::abs(p - p0) < 1e-5) {
-      qp_energy = p;
-      pole_found = true;
-      break;
+    std::cout << "MAE test failed\t" << mae_final << std::endl;
+  } else {
+    // Stupid Fixed point solver
+    double p0 = frequency0;
+    Index fps = 1;
+    while (fps <= 10000) {
+      double p = Laplacian_Kernel(p0, frequencies, _opt.qp_spread).dot(alphas) +
+                 intercept0;
+      if (std::abs(p - p0) < 1e-4) {
+        qp_energy = p;
+        pole_found = true;
+        break;
+      }
+      fps++;
+      p0 = p;
     }
-    fps++;
-    p0 = p;
   }
   if (pole_found) {
     newf = qp_energy;
+    std::cout << "Pole found :(" << std::endl;
   } else {
     std::cout << "Pole not found :(" << std::endl;
   }
+
   return newf;
 }
 
