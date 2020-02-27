@@ -345,18 +345,19 @@ void GWBSE::Initialize(tools::Property& options) {
     XTP_LOG(Log::error, *_pLog)
         << " RPA size: " << (homo + 1 - rpamin) * (rpamax - homo) << flush;
   }
-   _gwopt.order = options.ifExistsReturnElseReturnDefault<Index>(
+  _gwopt.order = options.ifExistsReturnElseReturnDefault<Index>(
       key + ".laguerrequad_order", _gwopt.order);
-      XTP_LOG(Log::error, *_pLog)
-        << " Integration order Quadrature: " << _gwopt.order << flush;
-        _gwopt.quadrature_scheme = options.ifExistsReturnElseReturnDefault<std::string>(
-      key + ".quadrature_scheme", _gwopt.quadrature_scheme);
-      XTP_LOG(Log::error, *_pLog)
-        << " Integration scheme Quadrature: " << _gwopt.quadrature_scheme << flush;
+  XTP_LOG(Log::error, *_pLog)
+      << " Integration order Quadrature: " << _gwopt.order << flush;
+  _gwopt.quadrature_scheme =
+      options.ifExistsReturnElseReturnDefault<std::string>(
+          key + ".quadrature_scheme", _gwopt.quadrature_scheme);
+  XTP_LOG(Log::error, *_pLog)
+      << " Integration scheme Quadrature: " << _gwopt.quadrature_scheme
+      << flush;
   _gwopt.alpha = options.ifExistsReturnElseReturnDefault<double>(key + ".alpha",
                                                                  _gwopt.alpha);
-    XTP_LOG(Log::error, *_pLog) << " Alpha value: " << _gwopt.alpha << flush;
-    
+  XTP_LOG(Log::error, *_pLog) << " Alpha value: " << _gwopt.alpha << flush;
 
   _gwopt.eta =
       options.ifExistsReturnElseReturnDefault<double>(key + ".eta", _gwopt.eta);
@@ -415,11 +416,13 @@ void GWBSE::Initialize(tools::Property& options) {
       key + ".qp_grid_steps", _gwopt.qp_grid_steps);
   _gwopt.qp_grid_spacing = options.ifExistsReturnElseReturnDefault<double>(
       key + ".qp_grid_spacing", _gwopt.qp_grid_spacing);
-      _gwopt.qp_training_points = options.ifExistsReturnElseReturnDefault<Index>(
+  _gwopt.qp_grid_hartree = options.ifExistsReturnElseReturnDefault<double>(
+      key + ".qp_grid_hartree", _gwopt.qp_grid_hartree);
+  _gwopt.qp_training_points = options.ifExistsReturnElseReturnDefault<Index>(
       key + ".qp_training_points", _gwopt.qp_training_points);
-      _gwopt.qp_spread = options.ifExistsReturnElseReturnDefault<double>(
+  _gwopt.qp_spread = options.ifExistsReturnElseReturnDefault<double>(
       key + ".qp_spread", _gwopt.qp_spread);
-       _gwopt.qp_mae_tol = options.ifExistsReturnElseReturnDefault<double>(
+  _gwopt.qp_mae_tol = options.ifExistsReturnElseReturnDefault<double>(
       key + ".qp_mae_tol", _gwopt.qp_mae_tol);
   XTP_LOG(Log::error, *_pLog) << " QP solver: " << _gwopt.qp_solver << flush;
   if (_gwopt.qp_solver == "grid") {
@@ -431,10 +434,9 @@ void GWBSE::Initialize(tools::Property& options) {
   if (_gwopt.qp_solver == "regression") {
     XTP_LOG(Log::error, *_pLog)
         << " QP training points: " << _gwopt.qp_training_points << flush;
+    XTP_LOG(Log::error, *_pLog) << " QP Spread: " << _gwopt.qp_spread << flush;
     XTP_LOG(Log::error, *_pLog)
-        << " QP Spread: " << _gwopt.qp_spread << flush;
-    XTP_LOG(Log::error, *_pLog)
-        << " QP MAE tolerance: " << _gwopt.qp_mae_tol << flush;    
+        << " QP MAE tolerance: " << _gwopt.qp_mae_tol << flush;
   }
 
   _sigma_plot_states = options.ifExistsReturnElseReturnDefault<std::string>(

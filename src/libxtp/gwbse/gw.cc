@@ -320,8 +320,8 @@ boost::optional<double> GW::SolveQP_Grid(double intercept0, double frequency0,
   if (pole_found) {
     newf = qp_energy;
   }
-  XTP_LOG(Log::error, _log)
-        << "Level " << gw_level << " Sigma evaluations " << numbersofcalls << std::flush;
+  XTP_LOG(Log::error, _log) << "Level " << gw_level << " Sigma evaluations "
+                            << numbersofcalls << std::flush;
   return newf;
 }
 
@@ -341,20 +341,20 @@ boost::optional<double> GW::SolveQP_Grid_reduced_interval(
   double initial_f = frequency0;
   frequency0 = initial_f + (initial_targ_prev) / (1.0 - initial_targ_prev_div);
 
-  const double range = 0.5;
+  const double range = _opt.qp_grid_hartree;
   double freq_prev = frequency0 - range;
   double targ_prev = fqp.value(freq_prev);
   double qp_energy = 0.0;
   double gradient_max = std::numeric_limits<double>::max();
   bool pole_found = false;
-  
+
   for (Index i_node = 1; i_node < _opt.qp_grid_steps; ++i_node) {
 
     double freq =
         freq_prev + 2.0 * range / _opt.qp_grid_steps;  // _opt.qp_grid_spacing;
     double targ = fqp.value(freq);
     numbersofcalls += 1;
-    
+
     if (targ_prev * targ < 0.0) {  // Sign change
       double f = SolveQP_Bisection(freq_prev, targ_prev, freq, targ, fqp);
       double gradient = std::abs(fqp.deriv(f));
@@ -372,8 +372,8 @@ boost::optional<double> GW::SolveQP_Grid_reduced_interval(
   if (pole_found) {
     newf = qp_energy;
   }
-  XTP_LOG(Log::error, _log)
-        << "Level " << gw_level << " Sigma evaluations " << numbersofcalls << std::flush;
+  XTP_LOG(Log::error, _log) << "Level " << gw_level << " Sigma evaluations "
+                            << numbersofcalls << std::flush;
   return newf;
 }
 
@@ -392,18 +392,18 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
 
   double initial_targ_prev = fqp.value(frequency0);
   double initial_targ_prev_div = fqp.deriv(frequency0);
-  
-  const double range = 0.5;
+
+  const double range = _opt.qp_grid_hartree;
   double initial_f = frequency0;
   frequency0 = initial_f + (initial_targ_prev) / (1.0 - initial_targ_prev_div);
 
   double freq_prev = frequency0 - range;
   double targ_prev = fqp.value(freq_prev);
-  
+
   Index numbersofcalls = 3;
 
   double qp_energy = 0.0;
-  
+
   bool pole_found = false;
   bool mae_test_pass = false;
   double mae_final = 0;
@@ -423,7 +423,7 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
     freq_training_i(j) = freq_prev + j * delta;
     sigma_training_i(j) =
         fqp.value(freq_training_i(j)) + freq_training_i(j) - intercept0;
-        numbersofcalls +=1;
+    numbersofcalls += 1;
   }
 
   freq.push_back(freq_training_i);
@@ -515,8 +515,8 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
         << TimeStamp() << " Fixed point not found after 10000 steps for "
         << gw_level << " going to normal grid evaluation" << std::flush;
   }
-  XTP_LOG(Log::error, _log)
-        << "Level " << gw_level << " Sigma evaluations " << numbersofcalls << std::flush;
+  XTP_LOG(Log::error, _log) << "Level " << gw_level << " Sigma evaluations "
+                            << numbersofcalls << std::flush;
   return newf;
 }  // namespace xtp
 
