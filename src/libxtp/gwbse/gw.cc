@@ -415,27 +415,48 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
   Eigen::VectorXd alphas;
   Index num_max = _opt.qp_training_points;
   Eigen::VectorXd frequencies;
-  while (num_max < 100) {
+  
+  
+  double delta = (2.0 * range) / ((1.0*num_max - 1.0));
+  
+
+  Eigen::VectorXd freq_training_i(num_max);
+  Eigen::VectorXd sigma_training_i(num_max);
+
+  std::vector<Eigen::VectorXd> sigma;
+  std::vector<Eigen::VectorXd> freq;
+
+  for (Index j = 0; j < freq_training_i.size(); ++j) {
+    freq_training_i(j) = freq_prev + j * delta;
+    sigma_training_i(j) = fqp.value(freq_training_i(j)) + freq_training_i(j) - intercept0;
+  }
+
+  freq.push_back(freq_training_i);
+  sigma.push_back(sigma_training_i);
+
+  
+  Index step = 1;
+  
+  while (step < 10) {
+    
     double mae = 0;
-    double num = num_max * 1.0;
-    Eigen::VectorXd freq_training(num_max);
-    Eigen::VectorXd freq_test(num_max);
-    Eigen::VectorXd sigma_training(num_max);
-    Eigen::VectorXd sigma_test(num_max);
-    double delta = (2.0 * range) / (num - 1.0);
+    
+    Eigen::VectorXd freq_training = freq[step - 1];
+    
+    Eigen::VectorXd sigma_training = sigma[step - 1];
+
     Eigen::MatrixXd kernel(freq_training.size(), sigma_training.size());
 
-    // Here it starts the Kernel Regression: j runs over columns, i runs over
-    // rows of the Kernel Matrix to be inverted in order to find alphas
-    for (Index j = 0; j < num; ++j) {
-      freq_training(j) = freq_prev + delta * j;
-      freq_test(j) = freq_training(j) + 0.5 * delta;
-      sigma_training(j) =
-          fqp.value(freq_training(j)) + freq_training(j) - intercept0;
+    Eigen::VectorXd freq_test(freq_training.size() - 1);
+    Eigen::VectorXd sigma_test(sigma_training.size() - 1);
+
+    delta *= 0.5;
+    for (Index j = 0; j < freq_test.size(); ++j) {
+      freq_test(j) = freq_training(j) + delta;
       sigma_test(j) = fqp.value(freq_test(j)) + freq_test(j) - intercept0;
     }
 
-    for (Index i = 0; i < num; ++i) {
+    for (Index i = 0; i < freq_training.size(); ++i) {
       kernel.row(i) =
           Laplacian_Kernel(freq_training(i), freq_training, _opt.qp_spread);
     }
@@ -446,18 +467,30 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
     for (Index t = 0; t < freq_test.size() - 1; t++) {
       mae +=
           std::abs(Laplacian_Kernel(freq_test(t), freq_training, _opt.qp_spread)
-                       .dot(alphas) - sigma_test(t));
+                       .dot(alphas) -
+                   sigma_test(t));
     }
 
     mae /= (double)num_test;
     mae_final = mae;
-    if (mae < 1e-2) {
+    if (mae < 1e-3) {
       frequencies = freq_training;
       mae_test_pass = true;
       break;
     } else {
-      num_max += 10;
-      std::cout << "MAE \t" << mae_final << "\t Increase number of pts to \t" << num_max << std::endl;
+      
+      step += 1;
+      Eigen::VectorXd temp_f(freq_training.size() + freq_test.size());
+      
+      Eigen::VectorXd temp_s(sigma_training.size() + sigma_test.size());
+      
+      temp_f << freq_training, freq_test;
+      
+      temp_s << sigma_training, sigma_test;
+   
+      freq.push_back(temp_f);
+      sigma.push_back(temp_s);
+    
     }
   }
   if (mae_test_pass == false) {
@@ -480,13 +513,13 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
   }
   if (pole_found) {
     newf = qp_energy;
-    std::cout << "Pole found :(" << std::endl;
+    std::cout << "Pole found :)" << std::endl;
   } else {
     std::cout << "Pole not found :(" << std::endl;
   }
 
   return newf;
-}
+}  // namespace xtp
 
 boost::optional<double> GW::SolveQP_SelfConsistent(double intercept0,
                                                    double frequency0,

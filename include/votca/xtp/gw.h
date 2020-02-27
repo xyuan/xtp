@@ -22,11 +22,11 @@
 #define _VOTCA_XTP_GW_H
 
 #include "votca/xtp/logger.h"
-#include <fstream>
 #include <votca/xtp/orbitals.h>
 #include <votca/xtp/rpa.h>
 #include <votca/xtp/sigma_base.h>
 #include <votca/xtp/threecenter.h>
+#include <fstream>
 namespace votca {
 namespace xtp {
 
@@ -64,10 +64,8 @@ class GW {
     Index qp_grid_steps = 601;       // Number of grid points
     double qp_grid_spacing = 0.005;  // Spacing of grid points in Ha
     std::string quadrature_scheme;  // Kind of Gaussian-quadrature scheme to use
-    Index qp_training_points =
-        20;  // Number of trainign point to use for Kernel Regression method
-    double qp_spread =
-        1.0;  // Spread of laplacian kernel for Kernel Regression method
+    Index qp_training_points = 20; //Number of trainign point to use for Kernel Regression method
+    double qp_spread = 1.0; //Spread of laplacian kernel for Kernel Regression method
   };
 
   void configure(const options& opt);
@@ -141,10 +139,9 @@ class GW {
   double SolveQP_Bisection(double lowerbound, double f_lowerbound,
                            double upperbound, double f_upperbound,
                            const QPFunc& f) const;
-
-  Eigen::VectorXd Laplacian_Kernel(double x1, Eigen::VectorXd x2,
-                                   double sigma) const;
-
+                             
+  Eigen::VectorXd Laplacian_Kernel(double x1, Eigen::VectorXd x2, double sigma) const;
+  
   double CalcHomoLumoShift(Eigen::VectorXd frequencies) const;
   Eigen::VectorXd ScissorShift_DFTlevel(
       const Eigen::VectorXd& dft_energies) const;
@@ -154,12 +151,10 @@ class GW {
   Eigen::VectorXd SolveQP(const Eigen::VectorXd& frequencies) const;
   boost::optional<double> SolveQP_Grid(double intercept0, double frequency0,
                                        Index gw_level) const;
-  boost::optional<double> SolveQP_Grid_reduced_interval(double intercept0,
-                                                        double frequency0,
-                                                        Index gw_level) const;
-  boost::optional<double> SolveQP_Regression(double intercept0,
-                                             double frequency0,
-                                             Index gw_level) const;
+                                       boost::optional<double> SolveQP_Grid_reduced_interval(double intercept0, double frequency0,
+                                       Index gw_level) const;
+  boost::optional<double> SolveQP_Regression(double intercept0, double frequency0,
+                                       Index gw_level) const;                                       
   boost::optional<double> SolveQP_SelfConsistent(double intercept0,
                                                  double frequency0,
                                                  Index gw_level) const;
