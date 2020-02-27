@@ -237,14 +237,12 @@ Eigen::VectorXd GW::SolveQP(const Eigen::VectorXd& frequencies) const {
       newf = SolveQP_Regression(intercept, initial_f, gw_level);
     }
     if (_opt.qp_solver == "grid") {
-      std::cout << "I am in grid " << std::endl;
       newf = SolveQP_Grid(intercept, initial_f, gw_level);
     }
     if (newf) {
       frequencies_new[gw_level] = newf.value();
       converged[gw_level] = true;
     } else {
-      std::cout << "I am in grid with reduced interval" << std::endl;
       newf = SolveQP_Grid_reduced_interval(intercept, initial_f, gw_level);
       if (newf) {
         frequencies_new[gw_level] = newf.value();
@@ -322,9 +320,8 @@ boost::optional<double> GW::SolveQP_Grid(double intercept0, double frequency0,
   if (pole_found) {
     newf = qp_energy;
   }
-  std::cout << "\n"
-            << gw_level << "\t Number of calls:\t" << numbersofcalls
-            << std::endl;
+  XTP_LOG(Log::error, _log)
+        << "Level " << gw_level << " Sigma evaluations " << numbersofcalls << std::flush;
   return newf;
 }
 
@@ -350,19 +347,14 @@ boost::optional<double> GW::SolveQP_Grid_reduced_interval(
   double qp_energy = 0.0;
   double gradient_max = std::numeric_limits<double>::max();
   bool pole_found = false;
-  // std::ofstream datafile;
-  // std::string filename = "data_" + std::to_string(gw_level) + ".dat";
-  // datafile.open(filename);
+  
   for (Index i_node = 1; i_node < _opt.qp_grid_steps; ++i_node) {
 
     double freq =
         freq_prev + 2.0 * range / _opt.qp_grid_steps;  // _opt.qp_grid_spacing;
     double targ = fqp.value(freq);
     numbersofcalls += 1;
-    // datafile << freq << "\t" << targ + freq - intercept0 << "\t" <<
-    // intercept0
-    //       << "\t" << frequency0 << "\t" << initial_f << "\n";
-
+    
     if (targ_prev * targ < 0.0) {  // Sign change
       double f = SolveQP_Bisection(freq_prev, targ_prev, freq, targ, fqp);
       double gradient = std::abs(fqp.deriv(f));
@@ -380,9 +372,8 @@ boost::optional<double> GW::SolveQP_Grid_reduced_interval(
   if (pole_found) {
     newf = qp_energy;
   }
-  std::cout << "\n"
-            << gw_level << "\t Number of calls:\t" << numbersofcalls
-            << std::endl;
+  XTP_LOG(Log::error, _log)
+        << "Level " << gw_level << " Sigma evaluations " << numbersofcalls << std::flush;
   return newf;
 }
 
@@ -401,24 +392,26 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
 
   double initial_targ_prev = fqp.value(frequency0);
   double initial_targ_prev_div = fqp.deriv(frequency0);
+  
   const double range = 0.5;
   double initial_f = frequency0;
   frequency0 = initial_f + (initial_targ_prev) / (1.0 - initial_targ_prev_div);
 
   double freq_prev = frequency0 - range;
   double targ_prev = fqp.value(freq_prev);
+  
+  Index numbersofcalls = 3;
+
   double qp_energy = 0.0;
-  double gradient_max = std::numeric_limits<double>::max();
+  
   bool pole_found = false;
   bool mae_test_pass = false;
   double mae_final = 0;
   Eigen::VectorXd alphas;
   Index num_max = _opt.qp_training_points;
   Eigen::VectorXd frequencies;
-  
-  
-  double delta = (2.0 * range) / ((1.0*num_max - 1.0));
-  
+
+  double delta = (2.0 * range) / ((1.0 * num_max - 1.0));
 
   Eigen::VectorXd freq_training_i(num_max);
   Eigen::VectorXd sigma_training_i(num_max);
@@ -428,21 +421,22 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
 
   for (Index j = 0; j < freq_training_i.size(); ++j) {
     freq_training_i(j) = freq_prev + j * delta;
-    sigma_training_i(j) = fqp.value(freq_training_i(j)) + freq_training_i(j) - intercept0;
+    sigma_training_i(j) =
+        fqp.value(freq_training_i(j)) + freq_training_i(j) - intercept0;
+        numbersofcalls +=1;
   }
 
   freq.push_back(freq_training_i);
   sigma.push_back(sigma_training_i);
 
-  
   Index step = 1;
-  
+
   while (step < 10) {
-    
+
     double mae = 0;
-    
+
     Eigen::VectorXd freq_training = freq[step - 1];
-    
+
     Eigen::VectorXd sigma_training = sigma[step - 1];
 
     Eigen::MatrixXd kernel(freq_training.size(), sigma_training.size());
@@ -454,6 +448,7 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
     for (Index j = 0; j < freq_test.size(); ++j) {
       freq_test(j) = freq_training(j) + delta;
       sigma_test(j) = fqp.value(freq_test(j)) + freq_test(j) - intercept0;
+      numbersofcalls += 1;
     }
 
     for (Index i = 0; i < freq_training.size(); ++i) {
@@ -473,28 +468,29 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
 
     mae /= (double)num_test;
     mae_final = mae;
-    if (mae < 1e-3) {
+    if (mae < _opt.qp_mae_tol) {
       frequencies = freq_training;
       mae_test_pass = true;
       break;
     } else {
-      
+
       step += 1;
       Eigen::VectorXd temp_f(freq_training.size() + freq_test.size());
-      
+
       Eigen::VectorXd temp_s(sigma_training.size() + sigma_test.size());
-      
+
       temp_f << freq_training, freq_test;
-      
+
       temp_s << sigma_training, sigma_test;
-   
+
       freq.push_back(temp_f);
       sigma.push_back(temp_s);
-    
     }
   }
   if (mae_test_pass == false) {
-    std::cout << "MAE test failed\t" << mae_final << std::endl;
+    XTP_LOG(Log::error, _log)
+        << TimeStamp() << "MAE test failed for level\t" << gw_level
+        << "\t automaticaly increase the number of points" << std::flush;
   } else {
     // Stupid Fixed point solver
     double p0 = frequency0;
@@ -513,11 +509,14 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
   }
   if (pole_found) {
     newf = qp_energy;
-    std::cout << "Pole found :)" << std::endl;
   } else {
-    std::cout << "Pole not found :(" << std::endl;
-  }
 
+    XTP_LOG(Log::error, _log)
+        << TimeStamp() << " Fixed point not found after 10000 steps for "
+        << gw_level << " going to normal grid evaluation" << std::flush;
+  }
+  XTP_LOG(Log::error, _log)
+        << "Level " << gw_level << " Sigma evaluations " << numbersofcalls << std::flush;
   return newf;
 }  // namespace xtp
 

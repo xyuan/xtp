@@ -66,6 +66,7 @@ class GW {
     std::string quadrature_scheme;  // Kind of Gaussian-quadrature scheme to use
     Index qp_training_points = 20; //Number of trainign point to use for Kernel Regression method
     double qp_spread = 1.0; //Spread of laplacian kernel for Kernel Regression method
+    double qp_mae_tol = 5e-4;
   };
 
   void configure(const options& opt);

@@ -419,6 +419,8 @@ void GWBSE::Initialize(tools::Property& options) {
       key + ".qp_training_points", _gwopt.qp_training_points);
       _gwopt.qp_spread = options.ifExistsReturnElseReturnDefault<double>(
       key + ".qp_spread", _gwopt.qp_spread);
+       _gwopt.qp_mae_tol = options.ifExistsReturnElseReturnDefault<double>(
+      key + ".qp_mae_tol", _gwopt.qp_mae_tol);
   XTP_LOG(Log::error, *_pLog) << " QP solver: " << _gwopt.qp_solver << flush;
   if (_gwopt.qp_solver == "grid") {
     XTP_LOG(Log::error, *_pLog)
@@ -431,6 +433,8 @@ void GWBSE::Initialize(tools::Property& options) {
         << " QP training points: " << _gwopt.qp_training_points << flush;
     XTP_LOG(Log::error, *_pLog)
         << " QP Spread: " << _gwopt.qp_spread << flush;
+    XTP_LOG(Log::error, *_pLog)
+        << " QP MAE tolerance: " << _gwopt.qp_mae_tol << flush;    
   }
 
   _sigma_plot_states = options.ifExistsReturnElseReturnDefault<std::string>(
