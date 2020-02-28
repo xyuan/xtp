@@ -306,7 +306,7 @@ boost::optional<double> GW::SolveQP_Grid(double intercept0, double frequency0,
     if (targ_prev * targ < 0.0) {  // Sign change
       double f = SolveQP_Bisection(freq_prev, targ_prev, freq, targ, fqp);
       double gradient = std::abs(fqp.deriv(f));
-      numbersofcalls += 1;
+      numbersofcalls++;
       if (gradient < gradient_max) {
         qp_energy = f;
         gradient_max = gradient;
@@ -322,6 +322,7 @@ boost::optional<double> GW::SolveQP_Grid(double intercept0, double frequency0,
   }
   XTP_LOG(Log::error, _log) << "Level " << gw_level << " Sigma evaluations "
                             << numbersofcalls << std::flush;
+  numbersofcalls=0;                          
   return newf;
 }
 
@@ -353,12 +354,12 @@ boost::optional<double> GW::SolveQP_Grid_reduced_interval(
     double freq =
         freq_prev + 2.0 * range / _opt.qp_grid_steps;  // _opt.qp_grid_spacing;
     double targ = fqp.value(freq);
-    numbersofcalls += 1;
+    numbersofcalls++;
 
     if (targ_prev * targ < 0.0) {  // Sign change
       double f = SolveQP_Bisection(freq_prev, targ_prev, freq, targ, fqp);
       double gradient = std::abs(fqp.deriv(f));
-      numbersofcalls += 1;
+      numbersofcalls++;
       if (gradient < gradient_max) {
         qp_energy = f;
         gradient_max = gradient;
@@ -375,6 +376,7 @@ boost::optional<double> GW::SolveQP_Grid_reduced_interval(
   XTP_LOG(Log::error, _log) << "Level " << gw_level << " Sigma evaluations "
                             << numbersofcalls << std::flush;
   return newf;
+  numbersofcalls = 0;
 }
 
 boost::optional<double> GW::SolveQP_Regression(double intercept0,
@@ -423,7 +425,7 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
     freq_training_i(j) = freq_prev + j * delta;
     sigma_training_i(j) =
         fqp.value(freq_training_i(j)) + freq_training_i(j) - intercept0;
-    numbersofcalls += 1;
+    numbersofcalls++;
   }
 
   freq.push_back(freq_training_i);
@@ -448,7 +450,7 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
     for (Index j = 0; j < freq_test.size(); ++j) {
       freq_test(j) = freq_training(j) + delta;
       sigma_test(j) = fqp.value(freq_test(j)) + freq_test(j) - intercept0;
-      numbersofcalls += 1;
+      numbersofcalls++;
     }
 
     for (Index i = 0; i < freq_training.size(); ++i) {
@@ -474,7 +476,6 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
       break;
     } else {
 
-      step += 1;
       Eigen::VectorXd temp_f(freq_training.size() + freq_test.size());
 
       Eigen::VectorXd temp_s(sigma_training.size() + sigma_test.size());
@@ -485,20 +486,26 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
 
       freq.push_back(temp_f);
       sigma.push_back(temp_s);
+
+      step++;
     }
   }
   if (mae_test_pass == false) {
     XTP_LOG(Log::error, _log)
-        << TimeStamp() << "MAE test failed for level\t" << gw_level
-        << "\t automaticaly increase the number of points" << std::flush;
+        << " MAE test failed for Level: " << gw_level
+        << " Number of points increased" << std::flush;
   } else {
+    XTP_LOG(Log::debug, _log)
+        << " MAE test passed for Level: " << gw_level
+        << " Step needed: " << step 
+        << std::flush;
     // Stupid Fixed point solver
     double p0 = frequency0;
     Index fps = 1;
     while (fps <= 10000) {
       double p = Laplacian_Kernel(p0, frequencies, _opt.qp_spread).dot(alphas) +
                  intercept0;
-      if (std::abs(p - p0) < 1e-4) {
+      if (std::abs(p - p0) < _opt.qp_fixedpoint_tol) {
         qp_energy = p;
         pole_found = true;
         break;
@@ -513,10 +520,11 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
 
     XTP_LOG(Log::error, _log)
         << TimeStamp() << " Fixed point not found after 10000 steps for "
-        << gw_level << " going to normal grid evaluation" << std::flush;
+        << gw_level << " going to grid evaluation" << std::flush;
   }
   XTP_LOG(Log::error, _log) << "Level " << gw_level << " Sigma evaluations "
                             << numbersofcalls << std::flush;
+  numbersofcalls = 0;
   return newf;
 }  // namespace xtp
 
