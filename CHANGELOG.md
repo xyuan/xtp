@@ -5,6 +5,7 @@ For more detailed information about the changes see the history of the
 * G0W0 rpa energies are fixed in BSE (#383) 
 * Hqp part of BSE can be separate from QP range (#388)
 * Fixed Cuda implementation (#391)
+* Compute the Three center integrals in multiple GPUs (#397)
 
 >>>>>>> master
 ## Version 1.6 _SuperPelagia_ (released XX.02.20)

@@ -47,6 +47,12 @@ class CudaPipeline {
   CudaPipeline() {
     cublasCreate(&_handle);
     cudaStreamCreate(&_stream);
+    checkCuda(cudaSetDevice(_deviceID));
+  }
+ CudaPipeline(int deviceID): _deviceID{deviceID} {
+    cublasCreate(&_handle);
+    cudaStreamCreate(&_stream);
+    checkCuda(cudaSetDevice(deviceID));
   }
   ~CudaPipeline();
 
@@ -59,6 +65,9 @@ class CudaPipeline {
   const cudaStream_t &get_stream() const { return _stream; };
 
  private:
+  // Device ID
+  _deviceID = 0;
+
   // The cublas handles allocates hardware resources on the host and device.
   cublasHandle_t _handle;
 

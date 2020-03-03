@@ -237,6 +237,7 @@ void TCMatrix_gwbse::MultiplyRightWithAuxMatrixCuda(
       << TimeStamp() << " Using CUDA/OpenMP for tensor matrix multiplication"
       << flush;
 
+  Index gpus = count_available_gpus();
   CudaPipeline cuda_pip;
   const Eigen::MatrixXd& head = _matrix.front();
   const cudaStream_t& stream = cuda_pip.get_stream();
