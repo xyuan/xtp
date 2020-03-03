@@ -30,6 +30,7 @@
 #include "../tools/partialcharges.h"
 #include "../tools/qmsandbox.h"
 #include "../tools/spectrum.h"
+#include "../tools/transientabsorption.h"
 
 namespace votca {
 namespace xtp {
@@ -47,6 +48,7 @@ void QMToolFactory::RegisterAll(void) {
   QMTools().Register<Coupling>("coupling");
   QMTools().Register<MolPol>("molpol");
   QMTools().Register<APDFT>("apdft");
+  QMTools().Register<TransientAbsorption>("transientabsorption");
 }
 
 }  // namespace xtp

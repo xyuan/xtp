@@ -1,0 +1,7 @@
+<options>
+
+<transientabsorption help="Tool to generate cube files from .orb file" section="sec:gencube">
+    <message>This is a test message </message>
+</transientabsorption>
+
+</options>

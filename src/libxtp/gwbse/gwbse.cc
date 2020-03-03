@@ -473,7 +473,6 @@ void GWBSE::addoutput(tools::Property& summary) {
                     (_orbitals.BSESinglets().eigenvalues()(state) * hrt2ev))
                        .str());
       if (_orbitals.hasTransitionDipoles()) {
-
         const Eigen::Vector3d& dipoles = (_orbitals.TransitionDipoles())[state];
         double f = 2 * dipoles.squaredNorm() *
                    _orbitals.BSESinglets().eigenvalues()(state) / 3.0;
