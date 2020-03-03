@@ -47,12 +47,6 @@ class CudaPipeline {
   CudaPipeline() {
     cublasCreate(&_handle);
     cudaStreamCreate(&_stream);
-    checkCuda(cudaSetDevice(_deviceID));
-  }
- CudaPipeline(int deviceID): _deviceID{deviceID} {
-    cublasCreate(&_handle);
-    cudaStreamCreate(&_stream);
-    checkCuda(cudaSetDevice(deviceID));
   }
   ~CudaPipeline();
 
@@ -63,6 +57,10 @@ class CudaPipeline {
   void gemm(const CudaMatrix &A, const CudaMatrix &B, CudaMatrix &C) const;
 
   const cudaStream_t &get_stream() const { return _stream; };
+
+  void set_device(int deviceID) {
+    checkCuda(cudaSetDevice(deviceID));
+  }
 
  private:
   // Device ID
