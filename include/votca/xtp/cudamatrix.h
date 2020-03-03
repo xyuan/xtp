@@ -40,7 +40,7 @@ namespace xtp {
 
 cudaError_t checkCuda(cudaError_t result);
 
-Index count_available_gpus();
+int count_available_gpus();
 
 class CudaMatrix {
  public:

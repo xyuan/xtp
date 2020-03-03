@@ -30,10 +30,10 @@ cudaError_t checkCuda(cudaError_t result) {
   return result;
 }
 
-Index count_available_gpus() {
+int count_available_gpus() {
   int count;
   cudaError_t err = cudaGetDeviceCount(&count);
-  return 0 ? (err != cudaSuccess) : Index(count);
+  return 0 ? (err != cudaSuccess) : count;
 }
 
 CudaMatrix::CudaMatrix(const Eigen::MatrixXd &matrix,

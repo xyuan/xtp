@@ -66,7 +66,7 @@ class CudaPipeline {
 
  private:
   // Device ID
-  _deviceID = 0;
+  int _deviceID = 0;
 
   // The cublas handles allocates hardware resources on the host and device.
   cublasHandle_t _handle;

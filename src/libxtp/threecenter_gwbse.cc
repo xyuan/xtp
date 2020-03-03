@@ -237,10 +237,12 @@ void TCMatrix_gwbse::MultiplyRightWithAuxMatrixCuda(
       << TimeStamp() << " Using CUDA/OpenMP for tensor matrix multiplication"
       << flush;
 
-  Index gpus = count_available_gpus();
-  CudaPipeline cuda_pip;
+  std::vector<CudaPipeline> pipelines;
+  for (int i=0; count_available_gpus() < i; i++) {
+    pipelines.push_back(CudaPipeline{i});
+  }
   const Eigen::MatrixXd& head = _matrix.front();
-  const cudaStream_t& stream = cuda_pip.get_stream();
+  const cudaStream_t& stream = pipelines.front().get_stream();
   CudaMatrix cuma_A{head.rows(), head.cols(), stream};
   CudaMatrix cuma_B{matrix, stream};
   CudaMatrix cuma_C{head.rows(), matrix.cols(), stream};
@@ -252,7 +254,7 @@ void TCMatrix_gwbse::MultiplyRightWithAuxMatrixCuda(
     // The rest of the threads use the default CPU matrix multiplication
     if (OPENMP::getThreadId() == 0) {
       cuma_A.copy_to_gpu(_matrix[i_occ]);
-      cuda_pip.gemm(cuma_A, cuma_B, cuma_C);
+      pipelines.front().gemm(cuma_A, cuma_B, cuma_C);
       _matrix[i_occ] = cuma_C;
     } else {
       _matrix[i_occ] *= matrix;
