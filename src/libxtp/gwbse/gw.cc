@@ -439,6 +439,7 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
   Index step = 1;
   double error_fp = 0;
   double nc_en = 0;
+  Index test_size = freq_training_i.size() - 1;
   while (step < 20) {
 
     double mae = 0;
@@ -449,13 +450,25 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
 
     Eigen::MatrixXd kernel(freq_training.size(), sigma_training.size());
 
-    Eigen::VectorXd freq_test(freq_training.size() - 1);
-    Eigen::VectorXd sigma_test(sigma_training.size() - 1);
+    if (_opt.qp_test_points == "both") {
+      test_size = freq_training.size() - 1;
+    } else {
+      test_size = (freq_training.size() - 1) / 2;
+    }
+
+    Eigen::VectorXd freq_test((freq_training.size() - 1) / 2);
+    Eigen::VectorXd sigma_test((sigma_training.size() - 1) / 2);
 
     delta *= 0.5;
 
     for (Index j = 0; j < freq_test.size(); ++j) {
-      freq_test(j) = freq_training(j) + delta;
+      if (_opt.qp_test_points == "odd") {
+        freq_test(j) = freq_training(2 * j + 1) - delta;
+      } else if (_opt.qp_test_points == "even") {
+        freq_test(j) = freq_training(2 * j) + delta;
+      } else {
+        freq_test(j) = freq_training(j) + delta;
+      }
       sigma_test(j) = fqp.value(freq_test(j)) + freq_test(j) - intercept0;
       numbersofcalls++;
     }
@@ -525,7 +538,7 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
 
     // Aitkin Method
     double p0 = frequency0;
-    for (Index i = 0; i < 20; i++) {
+    for (Index i = 0; i < 100; i++) {
       double p1 =
           Laplacian_Kernel(p0, frequencies, _opt.qp_spread).dot(alphas) +
           intercept0;

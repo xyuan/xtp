@@ -72,6 +72,7 @@ class GW {
     double qp_fixedpoint_tol = 1e-3;
     double qp_grid_hartree = 0.5;  // How many hartree on the left and right of
                                    // the pre-shooted center of the grid
+    std::string qp_test_points = "both";
   };
 
   void configure(const options& opt);

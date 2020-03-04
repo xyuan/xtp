@@ -426,6 +426,8 @@ void GWBSE::Initialize(tools::Property& options) {
       key + ".qp_mae_tol", _gwopt.qp_mae_tol);
   _gwopt.qp_fixedpoint_tol = options.ifExistsReturnElseReturnDefault<double>(
       key + ".qp_fixedpoint_tol", _gwopt.qp_fixedpoint_tol);
+  _gwopt.qp_test_points = options.ifExistsReturnElseReturnDefault<std::string>(
+      key + ".qp_test_points", _gwopt.qp_test_points);    
   XTP_LOG(Log::error, *_pLog) << " QP solver: " << _gwopt.qp_solver << flush;
   if (_gwopt.qp_solver == "grid") {
     XTP_LOG(Log::error, *_pLog)
@@ -441,6 +443,8 @@ void GWBSE::Initialize(tools::Property& options) {
         << " QP MAE tolerance: " << _gwopt.qp_mae_tol << flush;
     XTP_LOG(Log::error, *_pLog)
         << " QP Fixed point tolerance: " << _gwopt.qp_fixedpoint_tol << flush;
+    XTP_LOG(Log::error, *_pLog)
+        << " QP Testing points: " << _gwopt.qp_test_points << flush;    
   }
 
   _sigma_plot_states = options.ifExistsReturnElseReturnDefault<std::string>(
