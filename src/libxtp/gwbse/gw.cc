@@ -176,8 +176,8 @@ void GW::CalculateGWPerturbation() {
     _sigma->PrepareScreening();
     XTP_LOG(Log::info, _log)
         << TimeStamp() << " Calculated screening via RPA" << std::flush;
-    XTP_LOG(Log::info, _log)
-        << TimeStamp() << " Solving QP equations " << std::flush;
+    XTP_LOG(Log::info, _log) << TimeStamp() << " Solving QP equations \n"
+                             << std::flush;
     frequencies = SolveQP(frequencies);
 
     if (_opt.gw_sc_max_iterations > 1) {
@@ -239,11 +239,14 @@ Eigen::VectorXd GW::SolveQP(const Eigen::VectorXd& frequencies) const {
     if (_opt.qp_solver == "grid") {
       newf = SolveQP_Grid(intercept, initial_f, gw_level);
     }
+    if (_opt.qp_solver == "grid_ps") {
+      newf = SolveQP_Grid_reduced_interval(intercept, initial_f, gw_level);
+    }
     if (newf) {
       frequencies_new[gw_level] = newf.value();
       converged[gw_level] = true;
     } else {
-      newf = SolveQP_Grid_reduced_interval(intercept, initial_f, gw_level);
+      newf = SolveQP_Grid(intercept, initial_f, gw_level);
       if (newf) {
         frequencies_new[gw_level] = newf.value();
         converged[gw_level] = true;
@@ -320,9 +323,10 @@ boost::optional<double> GW::SolveQP_Grid(double intercept0, double frequency0,
   if (pole_found) {
     newf = qp_energy;
   }
-  XTP_LOG(Log::error, _log) << "Level " << gw_level << " Sigma evaluations "
-                            << numbersofcalls << std::flush;
-  numbersofcalls=0;                          
+  XTP_LOG(Log::error, _log)
+      << "Level " << gw_level << " Sigma evaluations " << numbersofcalls << "\n"
+      << std::flush;
+  numbersofcalls = 0;
   return newf;
 }
 
@@ -373,8 +377,9 @@ boost::optional<double> GW::SolveQP_Grid_reduced_interval(
   if (pole_found) {
     newf = qp_energy;
   }
-  XTP_LOG(Log::error, _log) << "Level " << gw_level << " Sigma evaluations "
-                            << numbersofcalls << std::flush;
+  XTP_LOG(Log::error, _log)
+      << "Level " << gw_level << " Sigma evaluations " << numbersofcalls << "\n"
+      << std::flush;
   return newf;
   numbersofcalls = 0;
 }
@@ -432,8 +437,9 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
   sigma.push_back(sigma_training_i);
 
   Index step = 1;
-
-  while (step < 10) {
+  double error_fp = 0;
+  double nc_en = 0;
+  while (step < 20) {
 
     double mae = 0;
 
@@ -447,6 +453,7 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
     Eigen::VectorXd sigma_test(sigma_training.size() - 1);
 
     delta *= 0.5;
+
     for (Index j = 0; j < freq_test.size(); ++j) {
       freq_test(j) = freq_training(j) + delta;
       sigma_test(j) = fqp.value(freq_test(j)) + freq_test(j) - intercept0;
@@ -491,39 +498,70 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
     }
   }
   if (mae_test_pass == false) {
-    XTP_LOG(Log::error, _log)
-        << " MAE test failed for Level: " << gw_level
-        << " Number of points increased" << std::flush;
+    XTP_LOG(Log::error, _log) << " MAE test failed for Level: " << gw_level
+                              << " Number of points increased" << std::flush;
   } else {
-    XTP_LOG(Log::debug, _log)
-        << " MAE test passed for Level: " << gw_level
-        << " Step needed: " << step 
-        << std::flush;
-    // Stupid Fixed point solver
+    XTP_LOG(Log::debug, _log) << " MAE test passed for Level: " << gw_level
+                              << " Step needed: " << step << std::flush;
+
+    // // Stupid Fixed point solver
+    // double p0 = frequency0;
+    // Index fps = 1;
+
+    // while (fps <= 50000) {
+    //   double p = Laplacian_Kernel(p0, frequencies,
+    //   _opt.qp_spread).dot(alphas) +
+    //              intercept0;
+    //   if (std::abs(p - p0) < _opt.qp_fixedpoint_tol) {
+    //     qp_energy = p;
+    //     pole_found = true;
+    //     break;
+    //   }
+    //   error_fp = std::abs(p - p0);
+    //   nc_en = p;
+    //   fps++;
+    //   p0 = p;
+    // }
+
+    // Aitkin Method
     double p0 = frequency0;
-    Index fps = 1;
-    while (fps <= 10000) {
-      double p = Laplacian_Kernel(p0, frequencies, _opt.qp_spread).dot(alphas) +
-                 intercept0;
-      if (std::abs(p - p0) < _opt.qp_fixedpoint_tol) {
-        qp_energy = p;
+    for (Index i = 0; i < 20; i++) {
+      double p1 =
+          Laplacian_Kernel(p0, frequencies, _opt.qp_spread).dot(alphas) +
+          intercept0;
+      double p2 =
+          Laplacian_Kernel(p1, frequencies, _opt.qp_spread).dot(alphas) +
+          intercept0;
+      double d = (p2 - p1) - (p1 - p0);
+      if (std::abs(d) < 1e-16) {
+        XTP_LOG(Log::error, _log)
+            << "This denominator should not be so small" << std::flush;
+        break;
+      }
+      double ap = p2 - ((p2 - p1) * (p2 - p1)) / d;
+      if (std::abs(ap - p2) < _opt.qp_fixedpoint_tol) {
+        qp_energy = ap;
         pole_found = true;
         break;
       }
-      fps++;
-      p0 = p;
+      error_fp = std::abs(ap - p0);
+      nc_en = ap;
+      p0 = ap;
     }
   }
+  XTP_LOG(Log::error, _log)
+      << "Level " << gw_level << " Sigma evaluations " << numbersofcalls << "\n"
+      << std::flush;
   if (pole_found) {
     newf = qp_energy;
   } else {
 
-    XTP_LOG(Log::error, _log)
-        << TimeStamp() << " Fixed point not found after 10000 steps for "
-        << gw_level << " going to grid evaluation" << std::flush;
+    XTP_LOG(Log::error, _log) << " Fixed point not found for " << gw_level
+                              << " going to grid evaluation. "
+                              << "Error: " << error_fp
+                              << "Not converged energy " << nc_en << std::flush;
   }
-  XTP_LOG(Log::error, _log) << "Level " << gw_level << " Sigma evaluations "
-                            << numbersofcalls << std::flush;
+
   numbersofcalls = 0;
   return newf;
 }  // namespace xtp
@@ -561,6 +599,7 @@ double GW::SolveQP_Bisection(double lowerbound, double f_lowerbound,
                              double upperbound, double f_upperbound,
                              const QPFunc& f) const {
 
+  Index callf = 0;
   if (f_lowerbound * f_upperbound > 0) {
     throw std::runtime_error(
         "Bisection needs a postive and negative function value");
@@ -573,6 +612,7 @@ double GW::SolveQP_Bisection(double lowerbound, double f_lowerbound,
       break;
     }
     double y_c = f.value(c);
+    callf++;
     if (std::abs(y_c) < _opt.g_sc_limit) {
       zero = c;
       break;
@@ -585,6 +625,7 @@ double GW::SolveQP_Bisection(double lowerbound, double f_lowerbound,
       f_upperbound = y_c;
     }
   }
+  XTP_LOG(Log::error, _log) << "Bisection evaluations " << callf << std::flush;
   return zero;
 }
 
