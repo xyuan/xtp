@@ -242,20 +242,24 @@ void TCMatrix_gwbse::MultiplyRightWithAuxMatrixCuda(
   int number_of_gpus = count_available_gpus();
   std::vector<CudaPipeline> pipelines(number_of_gpus);
   std::vector<std::array<CudaMatrix, 3>> matrice_per_gpu;
-  CudaPipeline& pipe = pipelines[0];
-  cudaSetDevice(0);
-  const cudaStream_t& stream = pipe.get_stream();
-  std::array<CudaMatrix, 3> cuda_matrices = {
-      CudaMatrix{head.rows(), head.cols(), stream}, CudaMatrix{matrix, stream},
-      CudaMatrix{head.rows(), matrix.cols(), stream}};
+  for (auto i = 0; i < number_of_gpus; i++) {
+    const CudaPipeline& pipe = pipelines[i];
+    cudaSetDevice(i);
+    const cudaStream_t& stream = pipe.get_stream();
+    matrice_per_gpu.push_back({CudaMatrix{head.rows(), head.cols(), stream},
+                               CudaMatrix{matrix, stream},
+                               CudaMatrix{head.rows(), matrix.cols(), stream}});
+  }
 
 #pragma omp parallel for schedule(dynamic)
   for (Index i_occ = 0; i_occ < _mtotal; i_occ++) {
     // Each GPU has associated a single thread that reuses all memory
     // allocated in the GPU and it's dynamically load-balanced by OpenMP. The
     // rest of the threads use the default CPU matrix multiplication
-    if (OPENMP::getThreadId() == 0) {
-      cudaSetDevice(0);
+    int threadID = static_cast<int>(OPENMP::getThreadId());
+    if (threadID < number_of_gpus) {
+      std::array<CudaMatrix, 3>& cuda_matrices = matrice_per_gpu[threadID];
+      cudaSetDevice(threadID);
       cuda_matrices[0].copy_to_gpu(_matrix[i_occ]);
       pipelines.front().gemm(cuda_matrices[0], cuda_matrices[1],
                              cuda_matrices[2]);
