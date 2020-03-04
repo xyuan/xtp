@@ -162,7 +162,7 @@ tools::EigenSystem BSE::solve_hermitian(BSE_OPERATOR& h) const {
       XTP_LOG(Log::info, _log) << TimeStamp() << " Full matrix assembled in "
                                << elapsed_time.count() << " secs" << flush;
 
-      // solve theeigenalue problem
+      // solve the eigenvalue problem
       hstart = std::chrono::system_clock::now();
       DS.solve(hfull, _opt.nmax);
       hend = std::chrono::system_clock::now();
@@ -396,7 +396,7 @@ tools::EigenSystem BSE::Solve_nonhermitian_Davidson(BSE_OPERATOR_A& Aop,
     XTP_LOG(Log::info, _log) << TimeStamp() << " Full matrix assembled in "
                              << elapsed_time.count() << " secs" << flush;
 
-    // solve theeigenalue problem
+    // solve the eigenvalue problem
     hstart = std::chrono::system_clock::now();
     DS.solve(hfull, _opt.nmax);
     hend = std::chrono::system_clock::now();

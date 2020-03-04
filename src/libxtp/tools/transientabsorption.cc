@@ -21,24 +21,55 @@
 #include <stdio.h>
 #include <votca/tools/constants.h>
 #include <votca/tools/elements.h>
-#include <votca/xtp/aobasis.h>
-#include <votca/xtp/cubefile_writer.h>
-#include <votca/xtp/orbitals.h>
-#include <boost/format.hpp>
 
 namespace votca {
 namespace xtp {
 
 void TransientAbsorption::Initialize(tools::Property& options) {
-    std::string key = "options." + Identify();
+  std::string key = "options." + Identify();
 
-    std::cout << options.ifExistsReturnElseThrowRuntimeError<std::string>(key + ".message") << std::endl;
+  _orbfile =
+      options.ifExistsReturnElseThrowRuntimeError<std::string>(key + ".input");
+  _output_file =
+      options.ifExistsReturnElseThrowRuntimeError<std::string>(key + ".output");
 
+  _orbitals.ReadFromCpt(_orbfile);
+  XTP_LOG(Log::info, _log) << "Reading serialized QM data from " << _orbfile
+                           << std::flush;
 }
 
-bool TransientAbsorption::Evaluate(){
-    return true;
+bool TransientAbsorption::Evaluate() { return true; }
+
+/*
+ * Computes transition dipoles between excited states (singlets only)
+ */
+std::array<Eigen::MatrixXd, 3> TransientAbsorption::singlet_transition_dipole() const {
+
+  Index numofstates = _BSE_singlet.eigenvalues().size();
+  _transition_dipoles.resize(0);
+  _transition_dipoles.reserve(numofstates * (numofstates -1) / 2);
+
+for (Index i_level = 0; i_level < numofstates -1; i_level++)
+    for (Index i_exc = i_level; i_exc < numofstates; i_exc++) {
+
+        Eigen::VectorXd coeffs_init_level = _BSE_singlet.eigenvectors().col(i_level);
+        Eigen::VectorXd coeffs_exc = _BSE_singlet.eigenvectors().col(i_exc);
+        if (!_useTDA) {
+        coeffs_exc += _BSE_singlet.eigenvectors2().col(i_exc);
+        }
+
+        // map the long row (array) of coeffs to a matrix form
+        Eigen::Map<Eigen::MatrixXd> mat(coeffs.data(), _bse_ctotal, _bse_vtotal);
+        // creat a place to store the result
+        Eigen::Vector3d tdipole = Eigen::Vector3d::Zero();
+
+        for( Index i = 0; i < 3; i++){
+            // Compute the transition dipole moment seperately for the x, y and z coord
+        }
+
+        
+    }
 }
 
-} // namespace xtp
-} // namespace votca
+}  // namespace xtp
+}  // namespace votca
