@@ -27,6 +27,9 @@
 #include <votca/xtp/orbitals.h>
 #include <votca/xtp/qmstate.h>
 #include <votca/xtp/qmtool.h>
+#include <votca/xtp/eigen.h>
+
+
 
 namespace votca {
 namespace xtp {
@@ -48,9 +51,11 @@ class TransientAbsorption : public QMTool {
   std::string _output_file;
   Logger _log;
   Orbitals _orbitals;
-
-  std::array<Eigen::MatrixXd, 3> singlet_transition_dipole() const;
   std::vector<Eigen::Vector3d> _transition_dipoles;
+
+  void CalcSingletTransitionDipole();
+  void CalcInterlevelDipoles();
+  
 };
 
 }  // namespace xtp

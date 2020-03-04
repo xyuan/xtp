@@ -226,6 +226,10 @@ class Orbitals {
 
   Index getBSEcmax() const { return _bse_cmax; }
 
+  Index getBSEvtotal() const { return _bse_vtotal; }
+
+  Index getBSEctotal() const { return _bse_ctotal; }
+
   double getScaHFX() const { return _ScaHFX; }
 
   void setScaHFX(double ScaHFX) { _ScaHFX = ScaHFX; }
