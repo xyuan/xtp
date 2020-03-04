@@ -237,25 +237,29 @@ void TCMatrix_gwbse::MultiplyRightWithAuxMatrixCuda(
       << TimeStamp() << " Using CUDA/OpenMP for tensor matrix multiplication"
       << flush;
 
-  std::vector<CudaPipeline> pipelines(count_available_gpus());
-  for (int i = 0; count_available_gpus() < i; i++) {
-    pipelines[i].set_device(i);
-  }
   const Eigen::MatrixXd& head = _matrix.front();
-  const cudaStream_t& stream = pipelines.front().get_stream();
-  CudaMatrix cuma_A{head.rows(), head.cols(), stream};
-  CudaMatrix cuma_B{matrix, stream};
-  CudaMatrix cuma_C{head.rows(), matrix.cols(), stream};
+  // Create 3 CudaMatrix instances for each GPU
+  int number_of_gpus = count_available_gpus();
+  std::vector<CudaPipeline> pipelines(number_of_gpus);
+  std::vector<std::array<CudaMatrix, 3>> matrice_per_gpu;
+  CudaPipeline& pipe = pipelines[0];
+  cudaSetDevice(0);
+  const cudaStream_t& stream = pipe.get_stream();
+  std::array<CudaMatrix, 3> cuda_matrices = {
+      CudaMatrix{head.rows(), head.cols(), stream}, CudaMatrix{matrix, stream},
+      CudaMatrix{head.rows(), matrix.cols(), stream}};
 
 #pragma omp parallel for schedule(dynamic)
   for (Index i_occ = 0; i_occ < _mtotal; i_occ++) {
-    // All the GPU communication happens through a single thread that reuses all
-    // memory allocated in the GPU and it's dynamically load-balanced by OpenMP.
-    // The rest of the threads use the default CPU matrix multiplication
+    // Each GPU has associated a single thread that reuses all memory
+    // allocated in the GPU and it's dynamically load-balanced by OpenMP. The
+    // rest of the threads use the default CPU matrix multiplication
     if (OPENMP::getThreadId() == 0) {
-      cuma_A.copy_to_gpu(_matrix[i_occ]);
-      pipelines.front().gemm(cuma_A, cuma_B, cuma_C);
-      _matrix[i_occ] = cuma_C;
+      cudaSetDevice(0);
+      cuda_matrices[0].copy_to_gpu(_matrix[i_occ]);
+      pipelines.front().gemm(cuda_matrices[0], cuda_matrices[1],
+                             cuda_matrices[2]);
+      _matrix[i_occ] = cuda_matrices[2];
     } else {
       _matrix[i_occ] *= matrix;
     }
@@ -263,8 +267,8 @@ void TCMatrix_gwbse::MultiplyRightWithAuxMatrixCuda(
 }
 
 /*
- * Convolution of the GW shell with the DFT orbital coefficients using an Nvidia
- * GPU
+ * Convolution of the GW shell with the DFT orbital coefficients using an
+ * Nvidia GPU
  */
 void TCMatrix_gwbse::FillAllBlocksCuda(const AOBasis& gwbasis,
                                        const AOBasis& dftbasis,
