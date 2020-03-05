@@ -18,14 +18,14 @@
  */
 
 #include "transientabsorption.h"
+#include "votca/xtp/aomatrix.h"
+#include "votca/xtp/aomatrix3d.h"
 #include <iostream>
 #include <numeric>
 #include <stdio.h>
-#include <vector>
 #include <votca/tools/constants.h>
 #include <votca/tools/elements.h>
-#include "votca/xtp/aomatrix.h"
-#include "votca/xtp/aomatrix3d.h"
+#include <votca/xtp/checkpoint.h>
 
 namespace votca {
 namespace xtp {
@@ -45,28 +45,33 @@ void TransientAbsorption::Initialize(tools::Property& options) {
 
 bool TransientAbsorption::Evaluate() {
 
+  CalcInterlevelDipoles();
   CalcSingletTransitionDipole();
+  WriteSingletTransitionDipole();
 
   return true;
 }
 
-
-
-void TransientAbsorption::CalcInterlevelDipoles(){
-  const Eigen::MatrixXd& dft_orbitals = _orbitals.MOs().eigenvectors;
-  AOBasis basis = SetupDftBasis();
+void TransientAbsorption::CalcInterlevelDipoles() {
+  const Eigen::MatrixXd& dft_orbitals = _orbitals.MOs().eigenvectors();
+  AOBasis basis = _orbitals.SetupDftBasis();
 
   AODipole dft_dipole;
   dft_dipole.Fill(basis);
 
+  Eigen::MatrixXd empty = dft_orbitals.block(
+      0, _orbitals.getBSEcmin(), basis.AOBasisSize(), _orbitals.getBSEctotal());
+  Eigen::MatrixXd occ = dft_orbitals.block(
+      0, _orbitals.getBSEvmin(), basis.AOBasisSize(), _orbitals.getBSEvtotal());
+  for (Index i = 0; i < 3; i++) {
+    _cdc_dipoles[i] = empty.transpose() * dft_dipole.Matrix()[i] * empty;
+    _vdv_dipoles[i] = occ.transpose() * dft_dipole.Matrix()[i] * occ;
+  }
 }
 
-/*
- * Computes transition dipoles between excited states (singlets only)
- */
 void TransientAbsorption::CalcSingletTransitionDipole() {
 
-  Index numofstates = _orbitals.BSESinglets.eigenvalues().size();
+  Index numofstates = _orbitals.BSESinglets().eigenvalues().size();
   Index ctotal = _orbitals.getBSEctotal();
   Index vtotal = _orbitals.getBSEvtotal();
 
@@ -78,13 +83,14 @@ void TransientAbsorption::CalcSingletTransitionDipole() {
     for (Index i_exc = i_level; i_exc < numofstates; i_exc++) {
 
       Eigen::VectorXd coeffs_level =
-          _orbitals.BSESinglets.eigenvectors().col(i_level);
+          _orbitals.BSESinglets().eigenvectors().col(i_level);
       Eigen::VectorXd coeffs_exc =
-          _orbitals.BSESinglets.eigenvectors().col(i_exc);
-      if (!_orbitals.BSESinglets.eigenvectors2().empty()) {  // check if TDA is
-                                                             // used or not
-        coeffs_level += _orbitals.BSESinglets.eigenvectors2().col(i_level);
-        coeffs_exc += _orbitals.BSESinglets.eigenvectors2().col(i_exc);
+          _orbitals.BSESinglets().eigenvectors().col(i_exc);
+      if (_orbitals.BSESinglets().eigenvectors2().size() > 0) {  // check if TDA
+                                                                 // is
+                                                                 // used or not
+        coeffs_level += _orbitals.BSESinglets().eigenvectors2().col(i_level);
+        coeffs_exc += _orbitals.BSESinglets().eigenvectors2().col(i_exc);
       }
       // map the long row (array) of coeffs to a matrix form
       Eigen::Map<Eigen::MatrixXd> mat_exc(coeffs_exc.data(), ctotal, vtotal);
@@ -97,7 +103,14 @@ void TransientAbsorption::CalcSingletTransitionDipole() {
         // Compute the transition dipole moment seperately for the x, y and z
         // coord
       }
+      _transition_dipoles.push_back(tdipole);
     }
+}
+
+void TransientAbsorption::WriteSingletTransitionDipole() {
+  CheckpointFile cpf(_orbfile, CheckpointAccessLevel::MODIFY);
+  CheckpointWriter w = cpf.getWriter("/QMdata");
+  w(_transition_dipoles, "singlet_transition_dipoles");
 }
 
 }  // namespace xtp

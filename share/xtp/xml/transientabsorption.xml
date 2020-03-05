@@ -2,7 +2,7 @@
 
 <transientabsorption help="some helpful message" section="sec:ta">
     <message>This is a test message </message>
-    <input>/home/ruben/parCalc/benzene.orb</input>
+    <input>/home/ruben/parCalc/benzene_test_case.orb</input>
     <output>output.orb</output>
 </transientabsorption>
 
