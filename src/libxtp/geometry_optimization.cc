@@ -57,7 +57,7 @@ void GeometryOptimization::Initialize(tools::Property& options) {
   _trajfile = options.ifExistsReturnElseReturnDefault<std::string>(
       ".trajectory_file", "optimisation.trj");
 
-  std::vector<std::string> choices = {"BFGS-TRM"};
+  std::vector<std::string> choices = {"BFGS-TRM", "engrad"};
   _optimizer =
       options.ifExistsAndinListReturnElseThrowRuntimeError<std::string>(
           ".optimizer.method", choices);
@@ -127,6 +127,30 @@ void GeometryOptimization::Evaluate() {
   e_cost.setConvergenceParameters(_conv);
   e_cost.setLog(_pLog);
   // get the optimizer
+  if (_optimizer == "engrad") {
+    double energy = e_cost.EvaluateCost(
+        Energy_costfunction::QMAtoms2Vector(_orbitals.QMAtoms()));
+    Eigen::VectorXd gradient = e_cost.EvaluateGradient(
+        Energy_costfunction::QMAtoms2Vector(_orbitals.QMAtoms()));
+    XTP_LOG(Log::error, *_pLog) << std::flush;
+    XTP_LOG(Log::error, *_pLog)
+        << (boost::format("=========== ENGRAD SUMMARY "
+                          "================================= "))
+               .str()
+        << std::flush;
+
+    XTP_LOG(Log::error, *_pLog)
+        << (boost::format("   Total energy:     %1$12.8f Hartree ") % energy)
+               .str()
+        << std::flush;
+    for (Index i = 0; i < gradient.size(); i += 3) {
+      XTP_LOG(Log::error, *_pLog)
+          << (boost::format("%1$4d    %2$+1.4f  %3$+1.4f  %4$+1.4f") % (i / 3) %
+              (gradient(i)) % (gradient(i + 1)) % (gradient(i + 2)))
+                 .str()
+          << std::flush;
+    }
+  }
   if (_optimizer == "BFGS-TRM") {
     BFGSTRM bfgstrm(e_cost);
     std::vector<std::function<void()> > callbacks;
