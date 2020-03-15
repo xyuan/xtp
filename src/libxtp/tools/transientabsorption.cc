@@ -20,11 +20,6 @@
 #include "transientabsorption.h"
 #include "votca/xtp/aomatrix.h"
 #include "votca/xtp/aomatrix3d.h"
-#include <iostream>
-#include <numeric>
-#include <stdio.h>
-#include <votca/tools/constants.h>
-#include <votca/tools/elements.h>
 #include <votca/xtp/checkpoint.h>
 
 namespace votca {
@@ -79,32 +74,36 @@ void TransientAbsorption::CalcSingletTransitionDipole() {
   _transition_dipoles.resize(0);
   _transition_dipoles.reserve(numofstates * (numofstates + 1) / 2);
 
-  for (Index i_level = 0; i_level < numofstates - 1; i_level++)
+  for (Index i_level = 0; i_level < numofstates - 1; i_level++) {
     for (Index i_exc = i_level; i_exc < numofstates; i_exc++) {
 
       Eigen::VectorXd coeffs_level =
           _orbitals.BSESinglets().eigenvectors().col(i_level);
       Eigen::VectorXd coeffs_exc =
           _orbitals.BSESinglets().eigenvectors().col(i_exc);
-      if (_orbitals.BSESinglets().eigenvectors2().size() > 0) {  // check if TDA
-                                                                 // is
-                                                                 // used or not
-        coeffs_level += _orbitals.BSESinglets().eigenvectors2().col(i_level);
-        coeffs_exc += _orbitals.BSESinglets().eigenvectors2().col(i_exc);
+
+      // check if TDA is used if so add B matrix
+      if (_orbitals.BSESinglets().eigenvectors2().size() > 0) {
+        coeffs_level -= _orbitals.BSESinglets().eigenvectors2().col(i_level);
+        coeffs_exc -= _orbitals.BSESinglets().eigenvectors2().col(i_exc);
       }
+
       // map the long row (array) of coeffs to a matrix form
       Eigen::Map<Eigen::MatrixXd> mat_exc(coeffs_exc.data(), ctotal, vtotal);
       Eigen::Map<Eigen::MatrixXd> mat_level(coeffs_level.data(), ctotal,
                                             vtotal);
-      // creat a place to store the result
-      Eigen::Vector3d tdipole = Eigen::Vector3d::Zero();
 
+      // Do the computation
+      Eigen::Vector3d tdipole = Eigen::Vector3d::Zero();
       for (Index i = 0; i < 3; i++) {
-        // Compute the transition dipole moment seperately for the x, y and z
-        // coord
+        Eigen::MatrixXd vdvPart = mat_level.transpose() * mat_exc;
+        Eigen::MatrixXd cdcPart = mat_level * mat_exc.transpose();
+        tdipole[i] = vdvPart.cwiseProduct(_vdv_dipoles[i]).sum() +
+                     cdcPart.cwiseProduct(_cdc_dipoles[i]).sum();
       }
-      _transition_dipoles.push_back(tdipole);
+      _transition_dipoles.push_back(2 * tdipole);
     }
+  }
 }
 
 void TransientAbsorption::WriteSingletTransitionDipole() {
