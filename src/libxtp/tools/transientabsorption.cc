@@ -82,8 +82,8 @@ void TransientAbsorption::CalcSingletTransitionDipole() {
       Eigen::VectorXd coeffs_exc =
           _orbitals.BSESinglets().eigenvectors().col(i_exc);
 
-      // check if TDA is used if so add B matrix
-      if (_orbitals.BSESinglets().eigenvectors2().size() > 0) {
+      // check if TDA is used if not add B matrix
+      if (!_orbitals.getTDAApprox()) {
         coeffs_level -= _orbitals.BSESinglets().eigenvectors2().col(i_level);
         coeffs_exc -= _orbitals.BSESinglets().eigenvectors2().col(i_exc);
       }
@@ -93,7 +93,7 @@ void TransientAbsorption::CalcSingletTransitionDipole() {
       Eigen::Map<Eigen::MatrixXd> mat_level(coeffs_level.data(), ctotal,
                                             vtotal);
 
-      // Do the computation
+      // Perform the computation
       Eigen::Vector3d tdipole = Eigen::Vector3d::Zero();
       for (Index i = 0; i < 3; i++) {
         Eigen::MatrixXd vdvPart = mat_level.transpose() * mat_exc;
@@ -101,7 +101,7 @@ void TransientAbsorption::CalcSingletTransitionDipole() {
         tdipole[i] = vdvPart.cwiseProduct(_vdv_dipoles[i]).sum() +
                      cdcPart.cwiseProduct(_cdc_dipoles[i]).sum();
       }
-      _transition_dipoles.push_back(2 * tdipole);
+      _transition_dipoles.push_back(tdipole);
     }
   }
 }
