@@ -73,6 +73,8 @@ class GW {
     double qp_grid_hartree = 0.5;  // How many hartree on the left and right of
                                    // the pre-shooted center of the grid
     std::string qp_test_points = "both"; //Other options are even and odd
+    
+    
   };
 
   void configure(const options& opt);
@@ -92,10 +94,11 @@ class GW {
 
   void PlotSigma(std::string filename, Index steps, double spacing,
                  std::string states) const;
-
+  
  private:
   Index _qptotal;
-
+  
+ 
   Eigen::MatrixXd _Sigma_x;
   Eigen::MatrixXd _Sigma_c;
   Eigen::MatrixXd _Sigma_c_i;
@@ -142,7 +145,11 @@ class GW {
     double _offset;
     const Sigma_base& _sigma_c_func;
   };
-
+  
+  std::pair<double,Index> SolveQP_Bisection_c(double lowerbound, double f_lowerbound,
+                           double upperbound, double f_upperbound,
+                           const QPFunc& f) const;
+  
   double SolveQP_Bisection(double lowerbound, double f_lowerbound,
                            double upperbound, double f_upperbound,
                            const QPFunc& f) const;

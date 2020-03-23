@@ -299,6 +299,7 @@ boost::optional<double> GW::SolveQP_Grid(double intercept0, double frequency0,
   double freq_prev = frequency0 - range;
   double targ_prev = fqp.value(freq_prev);
   Index numbersofcalls = 1;  // This is for pre-shooting
+  Index numbersofcalls_bisection = 0;
   double qp_energy = 0.0;
   double gradient_max = std::numeric_limits<double>::max();
   bool pole_found = false;
@@ -307,7 +308,10 @@ boost::optional<double> GW::SolveQP_Grid(double intercept0, double frequency0,
     double targ = fqp.value(freq);
     numbersofcalls += 1;
     if (targ_prev * targ < 0.0) {  // Sign change
-      double f = SolveQP_Bisection(freq_prev, targ_prev, freq, targ, fqp);
+    std::pair<double,Index> fandcount = SolveQP_Bisection_c(freq_prev, targ_prev, freq, targ, fqp);
+      double f = fandcount.first;
+      numbersofcalls_bisection += fandcount.second;
+      //double f = SolveQP_Bisection(freq_prev, targ_prev, freq, targ, fqp);
       double gradient = std::abs(fqp.deriv(f));
       numbersofcalls++;
       if (gradient < gradient_max) {
@@ -324,7 +328,7 @@ boost::optional<double> GW::SolveQP_Grid(double intercept0, double frequency0,
     newf = qp_energy;
   }
   XTP_LOG(Log::error, _log)
-      << "Level " << gw_level << " Sigma evaluations " << numbersofcalls << "\n"
+      << "Level " << gw_level << " Sigma evaluations " << numbersofcalls+numbersofcalls_bisection << "\n"
       << std::flush;
   numbersofcalls = 0;
   return newf;
@@ -343,6 +347,7 @@ boost::optional<double> GW::SolveQP_Grid_reduced_interval(
   double initial_targ_prev = fqp.value(frequency0);
   double initial_targ_prev_div = fqp.deriv(frequency0);
   Index numbersofcalls = 2;  // This is for pre-shooting
+  Index numbersofcalls_bisection = 0;
   double initial_f = frequency0;
   frequency0 = initial_f + (initial_targ_prev) / (1.0 - initial_targ_prev_div);
 
@@ -361,7 +366,10 @@ boost::optional<double> GW::SolveQP_Grid_reduced_interval(
     numbersofcalls++;
 
     if (targ_prev * targ < 0.0) {  // Sign change
-      double f = SolveQP_Bisection(freq_prev, targ_prev, freq, targ, fqp);
+      std::pair<double,Index> fandcount = SolveQP_Bisection_c(freq_prev, targ_prev, freq, targ, fqp);
+      double f = fandcount.first;
+      numbersofcalls_bisection += fandcount.second;
+      //double f = SolveQP_Bisection(freq_prev, targ_prev, freq, targ, fqp);
       double gradient = std::abs(fqp.deriv(f));
       numbersofcalls++;
       if (gradient < gradient_max) {
@@ -378,7 +386,7 @@ boost::optional<double> GW::SolveQP_Grid_reduced_interval(
     newf = qp_energy;
   }
   XTP_LOG(Log::error, _log)
-      << "Level " << gw_level << " Sigma evaluations " << numbersofcalls << "\n"
+      << "Level " << gw_level << " Sigma evaluations " << numbersofcalls+numbersofcalls_bisection << "\n"
       << std::flush;
   return newf;
   numbersofcalls = 0;
@@ -608,6 +616,39 @@ boost::optional<double> GW::SolveQP_FixedPoint(double intercept0,
 }
 
 // https://en.wikipedia.org/wiki/Bisection_method
+std::pair<double,Index> GW::SolveQP_Bisection_c(double lowerbound, double f_lowerbound,
+                             double upperbound, double f_upperbound,
+                             const QPFunc& f) const {
+
+  Index callf = 0;
+  if (f_lowerbound * f_upperbound > 0) {
+    throw std::runtime_error(
+        "Bisection needs a postive and negative function value");
+  }
+  double zero = 0.0;
+  while (true) {
+    double c = 0.5 * (lowerbound + upperbound);
+    if (std::abs(upperbound - lowerbound) < _opt.g_sc_limit) {
+      zero = c;
+      break;
+    }
+    double y_c = f.value(c);
+    callf++;
+    if (std::abs(y_c) < _opt.g_sc_limit) {
+      zero = c;
+      break;
+    }
+    if (y_c * f_lowerbound > 0) {
+      lowerbound = c;
+      f_lowerbound = y_c;
+    } else {
+      upperbound = c;
+      f_upperbound = y_c;
+    }
+  }
+  return std::make_pair(zero,callf);
+}
+
 double GW::SolveQP_Bisection(double lowerbound, double f_lowerbound,
                              double upperbound, double f_upperbound,
                              const QPFunc& f) const {
@@ -641,6 +682,7 @@ double GW::SolveQP_Bisection(double lowerbound, double f_lowerbound,
   XTP_LOG(Log::error, _log) << "Bisection evaluations " << callf << std::flush;
   return zero;
 }
+
 
 Eigen::VectorXd GW::Laplacian_Kernel(double x1, Eigen::VectorXd x2,
                                      double sigma) const {
