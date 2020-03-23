@@ -339,7 +339,7 @@ boost::optional<double> GW::SolveQP_Grid_reduced_interval(
   // the interesection between the linearization of fqp =
   // sigma_c+intercept0-frequency0 around the frequency0 and the line fqp = 0.
   // In other words this is the solution of the linearization problem. We use
-  // this as starting point. We shift +- 0.5 Hartree from that
+  // this as starting point. We shift +- 0.5 Hartree from that as default
   double initial_targ_prev = fqp.value(frequency0);
   double initial_targ_prev_div = fqp.deriv(frequency0);
   Index numbersofcalls = 2;  // This is for pre-shooting
@@ -395,7 +395,7 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
   // the interesection between the linearization of fqp =
   // sigma_c+intercept0-frequency0 around the frequency0 and the line fqp = 0.
   // In other words this is the solution of the linearization problem. We use
-  // this as starting point. We shift +- 0.5 Hartree from that
+  // this as starting point. We shift +- 0.5 Hartree from that as default
 
   double initial_targ_prev = fqp.value(frequency0);
   double initial_targ_prev_div = fqp.deriv(frequency0);

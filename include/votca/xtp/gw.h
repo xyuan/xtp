@@ -65,14 +65,14 @@ class GW {
     double qp_grid_spacing = 0.005;  // Spacing of grid points in Ha
     std::string quadrature_scheme;  // Kind of Gaussian-quadrature scheme to use
     Index qp_training_points =
-        20;  // Number of trainign point to use for Kernel Regression method
+        5;  // Number of starting training point to use for Kernel Regression method
     double qp_spread =
         1.0;  // Spread of laplacian kernel for Kernel Regression method
-    double qp_mae_tol = 5e-4;
-    double qp_fixedpoint_tol = 1e-3;
+    double qp_mae_tol = 5e-4; //To prove that we learn the curve we use the MAE 
+    double qp_fixedpoint_tol = 1e-3; // Tolerance to be reach when usign Atkin method for fixed point solver
     double qp_grid_hartree = 0.5;  // How many hartree on the left and right of
                                    // the pre-shooted center of the grid
-    std::string qp_test_points = "both";
+    std::string qp_test_points = "both"; //Other options are even and odd
   };
 
   void configure(const options& opt);
