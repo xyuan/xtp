@@ -327,9 +327,9 @@ boost::optional<double> GW::SolveQP_Grid(double intercept0, double frequency0,
   if (pole_found) {
     newf = qp_energy;
   }
-  XTP_LOG(Log::error, _log)
-      << "Level " << gw_level << " Sigma evaluations " << numbersofcalls+numbersofcalls_bisection << "\n"
-      << std::flush;
+  //XTP_LOG(Log::error, _log)
+    std::cout  << "\n Level " << gw_level << " Sigma evaluations " << numbersofcalls+numbersofcalls_bisection << "\n"
+      << std::endl;
   numbersofcalls = 0;
   return newf;
 }
@@ -351,7 +351,7 @@ boost::optional<double> GW::SolveQP_Grid_reduced_interval(
   double initial_f = frequency0;
   frequency0 = initial_f + (initial_targ_prev) / (1.0 - initial_targ_prev_div);
 
-  const double range = _opt.qp_grid_hartree;
+  const double range = _opt.qp_grid_hartree/2.;
   double freq_prev = frequency0 - range;
   double targ_prev = fqp.value(freq_prev);
   double qp_energy = 0.0;
@@ -385,9 +385,9 @@ boost::optional<double> GW::SolveQP_Grid_reduced_interval(
   if (pole_found) {
     newf = qp_energy;
   }
-  XTP_LOG(Log::error, _log)
-      << "Level " << gw_level << " Sigma evaluations " << numbersofcalls+numbersofcalls_bisection << "\n"
-      << std::flush;
+  //XTP_LOG(Log::error, _log)
+     std::cout << " \n Level " << gw_level << " Sigma evaluations " << numbersofcalls+numbersofcalls_bisection << "\n"
+      << std::endl;
   return newf;
   numbersofcalls = 0;
 }
@@ -408,7 +408,7 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
   double initial_targ_prev = fqp.value(frequency0);
   double initial_targ_prev_div = fqp.deriv(frequency0);
 
-  const double range = _opt.qp_grid_hartree;
+  const double range = _opt.qp_grid_hartree/2.;
   double initial_f = frequency0;
   frequency0 = initial_f + (initial_targ_prev) / (1.0 - initial_targ_prev_div);
 
@@ -546,7 +546,7 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
 
     // Aitkin Method
     double p0 = frequency0;
-    for (Index i = 0; i < 100; i++) {
+    for (Index i = 0; i < 10000; i++) {
       double p1 =
           Laplacian_Kernel(p0, frequencies, _opt.qp_spread).dot(alphas) +
           intercept0;
@@ -570,9 +570,9 @@ boost::optional<double> GW::SolveQP_Regression(double intercept0,
       p0 = ap;
     }
   }
-  XTP_LOG(Log::error, _log)
-      << "Level " << gw_level << " Sigma evaluations " << numbersofcalls << "\n"
-      << std::flush;
+  //XTP_LOG(Log::error, _log)
+    std::cout  << " \n Level " << gw_level << " Sigma evaluations " << numbersofcalls << std::endl;
+     // << std::flush;
   if (pole_found) {
     newf = qp_energy;
   } else {
