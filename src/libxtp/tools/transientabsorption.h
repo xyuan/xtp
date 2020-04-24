@@ -52,6 +52,7 @@ class TransientAbsorption : public QMTool {
   Logger _log;
   Orbitals _orbitals;
   std::vector<Eigen::Vector3d> _transition_dipoles;
+  std::vector<double> _oscillator_strengths;
   std::array<Eigen::MatrixXd, 3> _vdv_dipoles;
   std::array<Eigen::MatrixXd, 3> _cdc_dipoles;
 

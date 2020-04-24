@@ -73,6 +73,8 @@ void TransientAbsorption::CalcSingletTransitionDipole() {
   // create space to store the results
   _transition_dipoles.resize(0);
   _transition_dipoles.reserve(numofstates * (numofstates + 1) / 2);
+  _oscillator_strengths.resize(0);
+  _oscillator_strengths.reserve(numofstates * (numofstates + 1) / 2);
 
   for (Index i_level = 0; i_level < numofstates - 1; i_level++) {
     for (Index i_exc = i_level; i_exc < numofstates; i_exc++) {
@@ -102,6 +104,10 @@ void TransientAbsorption::CalcSingletTransitionDipole() {
                      cdcPart.cwiseProduct(_cdc_dipoles[i]).sum();
       }
       _transition_dipoles.push_back(tdipole);
+      _oscillator_strengths.push_back(
+          tdipole.squaredNorm() * 2.0 / 3.0 *
+          (_orbitals.BSESinglets().eigenvalues()[i_exc] -
+           _orbitals.BSESinglets().eigenvalues()[i_level]));
     }
   }
 }
@@ -110,6 +116,7 @@ void TransientAbsorption::WriteSingletTransitionDipole() {
   CheckpointFile cpf(_orbfile, CheckpointAccessLevel::MODIFY);
   CheckpointWriter w = cpf.getWriter("/QMdata");
   w(_transition_dipoles, "singlet_transition_dipoles");
+  w(_oscillator_strengths, "singlet_oscillator_strengths");
 }
 
 }  // namespace xtp
