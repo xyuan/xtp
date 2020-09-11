@@ -1,7 +1,7 @@
 
 #pragma once
-#ifndef VOTCA_XTP_LIBINTDFT_PRIVATE_H
-#define VOTCA_XTP_LIBINTDFT_PRIVATE_H
+#ifndef VOTCA_XTP_LIBINTSANDBOX_PRIVATE_H
+#define VOTCA_XTP_LIBINTSANDBOX_PRIVATE_H
 
 // VOTCA includes
 #include <votca/tools/constants.h>
@@ -17,18 +17,18 @@
 #include "votca/xtp/vxc_potential.h"
 
 // VOTCA includes
-#include <votca/tools/property.h>vo
+#include <votca/tools/property.h>
 
 namespace votca {
 namespace xtp {
 
-class LibintDFT final : public QMTool {
+class LibintSandbox final : public QMTool {
  public:
-  LibintDFT() = default;
+  LibintSandbox() = default;
 
-  ~LibintDFT() final = default;
+  ~LibintSandbox() final = default;
 
-  std::string Identify() final { return "libintdft"; }
+  std::string Identify() final { return "libintsandbox"; }
 
   void Initialize(const tools::Property& user_options) final;
   bool Evaluate() final;
@@ -45,4 +45,4 @@ class LibintDFT final : public QMTool {
 }  // namespace xtp
 }  // namespace votca
 
-#endif  // VOTCA_XTP_LIBINTDFT_PRIVATE_H
+#endif  // VOTCA_XTP_LIBINTSANDBOX_PRIVATE_H
