@@ -45,6 +45,16 @@ bool LibintSandbox::Evaluate() {
       << "\n\tOverlap Integrals Libint BEFORE reordering:\n";
   XTP_LOG(Log::error, _log) << S << std::endl;
 
+  Eigen::MatrixXd S_Xd = static_cast<Eigen::MatrixXd>(S);
+
+  OrbReorder reorder(_libint_reorder, _libint_multipliers);
+
+  reorder.reorderRowsAndCols(S_Xd, basis);
+
+  XTP_LOG(Log::error, _log)
+      << "\n\tOverlap Integrals Libint AFTER reordering:\n";
+  XTP_LOG(Log::error, _log) << S_Xd << std::endl;
+
   // Compute Overlap with VOTCA
   AOOverlap dftAOoverlap;
   dftAOoverlap.Fill(basis);
@@ -57,7 +67,7 @@ bool LibintSandbox::Evaluate() {
   // Compare
   XTP_LOG(Log::error, _log)
       << "Matrices are approximately equal: "
-      << S.isApprox(dftAOoverlap.Matrix(), 1e-5) << std::endl;
+      << S_Xd.isApprox(dftAOoverlap.Matrix(), 1e-5) << std::endl;
   libint2::finalize();
   return true;
 }

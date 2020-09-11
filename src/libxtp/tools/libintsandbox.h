@@ -42,17 +42,17 @@ class LibintSandbox final : public QMTool {
 
  private:
   // clang-format off
- std::array<Index,25> _libint_multipliers={ // NOT CORRECT YET !!!
+ std::array<Index,25> _libint_multipliers={ 
             1, //s
             1,1,1, //p
             1,1,1,1,1, //d
-            1,1,1,1,1,-1,-1, //f 
-            1,1,1,1,1,-1,-1,-1,-1 //g
+            1,1,1,1,1,1,1, //f 
+            1,1,1,1,1,1,1,1,1 //g
             };
-  std::array<Index, 25> _libint_reorder={ // NOT CORRECT YET !!!
+  std::array<Index, 25> _libint_reorder={ 
             0, //s
-            1,0,-1, //p
-            0,1,-1,2,-2, //d
+            -1,0,1, //p
+            -2,-1,0,1,2, //d
             -3,-2,-1,0,1,2,3, //f 
             -4,-3,-2,-1,0,1,2,3,4 //g
             };
