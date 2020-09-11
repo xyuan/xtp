@@ -41,6 +41,22 @@ class LibintSandbox final : public QMTool {
   bool Evaluate() final;
 
  private:
+  // clang-format off
+ std::array<Index,25> _libint_multipliers={ // NOT CORRECT YET !!!
+            1, //s
+            1,1,1, //p
+            1,1,1,1,1, //d
+            1,1,1,1,1,-1,-1, //f 
+            1,1,1,1,1,-1,-1,-1,-1 //g
+            };
+  std::array<Index, 25> _libint_reorder={ // NOT CORRECT YET !!!
+            0, //s
+            1,0,-1, //p
+            0,1,-1,2,-2, //d
+            -3,-2,-1,0,1,2,3, //f 
+            -4,-3,-2,-1,0,1,2,3,4 //g
+            };
+  // clang-format on
   using real_t = libint2::scalar_type;
   using Matrix =
       Eigen::Matrix<real_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
@@ -56,6 +72,8 @@ class LibintSandbox final : public QMTool {
   int max_l(const std::vector<libint2::Shell>& shells);
   std::vector<size_t> map_shell_to_basis_function(
       const std::vector<libint2::Shell>& shells);
+
+  std::vector<libint2::Shell> make_libint_basis(const AOBasis& aobasis);
 
   // VOTCA
 };

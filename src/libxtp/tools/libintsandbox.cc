@@ -7,8 +7,8 @@
 // Local VOTCA includes
 #include "votca/xtp/molden.h"
 #include "votca/xtp/orbitals.h"
+#include "votca/xtp/orbreorder.h"
 #include <votca/tools/constants.h>
-
 namespace votca {
 namespace xtp {
 
@@ -25,46 +25,27 @@ bool LibintSandbox::Evaluate() {
   _log.setMultithreading(true);
   _log.setCommonPreface("\n... ...");
 
-  XTP_LOG(Log::error, _log)
-      << "Starting Libint Overlap Calculation " << std::flush;
-  libint2::initialize();
-
-  // Load atoms
-  std::ifstream input_file(_job_name + ".xyz");
-  std::vector<libint2::Atom> atoms = libint2::read_dotxyz(input_file);
-
-  XTP_LOG(Log::error, _log) << DATADIR;
-
-  // Load basisset
-  libint2::BasisSet shells("def2-tzvp", atoms);
-
-  /******************************************
-   * compute overlap integrals LIBINT
-   ********************************************/
-
-  auto S = compute_1body_ints(shells, libint2::Operator::overlap);
-  XTP_LOG(Log::error, _log) << "\n\tOverlap Integrals Libint:\n";
-  XTP_LOG(Log::error, _log) << S << std::endl;
-
-  libint2::finalize();
-
-  /******************************************
-   * compute overlap integrals VOTCA
-   ********************************************/
-
-  XTP_LOG(Log::error, _log)
-      << "Starting VOTCA Overlap Calculation " << std::flush;
-
-  QMMolecule atomsVOTCA("", 0);
-  atomsVOTCA.LoadFromFile(_job_name + ".xyz");
-
-  // Make basis
+  // Setup VOTCA basis
+  QMMolecule atoms("", 0);
+  atoms.LoadFromFile(_job_name + ".xyz");
   BasisSet bs;
   bs.Load("def2-tzvp");
   AOBasis basis;
-  basis.Fill(bs, atomsVOTCA);
+  basis.Fill(bs, atoms);
 
-  // Get overlap matrix
+  // Convert to Libint Basis
+  std::vector<libint2::Shell> libintBasis = make_libint_basis(basis);
+
+  // Computer Overlap with LIBINT
+  libint2::initialize();
+
+  auto S = compute_1body_ints(libintBasis, libint2::Operator::overlap);
+
+  XTP_LOG(Log::error, _log)
+      << "\n\tOverlap Integrals Libint BEFORE reordering:\n";
+  XTP_LOG(Log::error, _log) << S << std::endl;
+
+  // Compute Overlap with VOTCA
   AOOverlap dftAOoverlap;
   dftAOoverlap.Fill(basis);
 
@@ -72,6 +53,12 @@ bool LibintSandbox::Evaluate() {
   XTP_LOG(Log::error, _log) << dftAOoverlap.Matrix() << std::endl;
 
   XTP_LOG(Log::error, _log) << std::endl;
+
+  // Compare
+  XTP_LOG(Log::error, _log)
+      << "Matrices are approximately equal: "
+      << S.isApprox(dftAOoverlap.Matrix(), 1e-5) << std::endl;
+  libint2::finalize();
   return true;
 }
 
@@ -165,6 +152,28 @@ std::vector<size_t> LibintSandbox::map_shell_to_basis_function(
 
   return result;
 }
+
+std::vector<libint2::Shell> LibintSandbox::make_libint_basis(
+    const AOBasis& aobasis) {
+  std::vector<libint2::Shell> shells;
+
+  for (const auto& shell : aobasis) {
+    libint2::svector<real_t> decays;
+    libint2::svector<libint2::Shell::real_t> contractions;
+    const Eigen::Vector3d& pos = shell.getPos();
+    for (const auto& primitive : shell) {
+      decays.push_back(primitive.getDecay());
+      contractions.push_back(primitive.getContraction());
+    }
+
+    shells.push_back({decays,
+                      {// compute integrals in sphericals
+                       {static_cast<int>(shell.getL()), true, contractions}},
+                      // Atomic Coordinates
+                      {{pos[0], pos[1], pos[2]}}});
+  }
+  return shells;
+}  // namespace xtp
 
 }  // namespace xtp
 }  // namespace votca
