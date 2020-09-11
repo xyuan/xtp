@@ -3,6 +3,9 @@
 #ifndef VOTCA_XTP_LIBINTSANDBOX_PRIVATE_H
 #define VOTCA_XTP_LIBINTSANDBOX_PRIVATE_H
 
+// Point Libint to the data folder with the basisset info
+#define DATADIR std::string(getenv("VOTCASHARE")) + "/xtp/data"
+
 // VOTCA includes
 #include <votca/tools/constants.h>
 
