@@ -86,7 +86,6 @@ endif(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/.git)
 
 find_package(Boost 1.57.0 REQUIRED COMPONENTS program_options filesystem system timer)
 find_package(Eigen3 3.3.0 REQUIRED NO_MODULE)
-find_package(Libint2)
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
   set_package_properties(Boost PROPERTIES TYPE REQUIRED PURPOSE "Extended C++ libraries")
   set_package_properties(Eigen3 PROPERTIES TYPE REQUIRED PURPOSE "C++ vector data structures")
